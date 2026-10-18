@@ -66,6 +66,8 @@ flatpak run io.github.tzerokyi.RetroPrint
 
 Flatpak installs the executable with its launcher, so there is no separate `chmod` step. The first installation may download the Freedesktop 26.08 runtime from Flathub. This bundle uses X11/XWayland for the desktop window and the file chooser portal for file access; it does not request network access. A desktop with XWayland support is required. The bundle is distributed through GitHub Releases, not Flathub's app catalog.
 
+The standalone bundle is a direct download, not a software-store listing or an automatic update source. Software centers may show limited publisher details or omit screenshots when inspecting the bundle. The project metadata includes a developer name and a screenshot URL for a future public Flatpak repository; the screenshot URL becomes accessible when this GitHub repository is public.
+
 ## Usage
 
 1. Drag an image into the window or click **Open Image**.

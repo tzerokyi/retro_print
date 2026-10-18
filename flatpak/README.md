@@ -26,6 +26,8 @@ flatpak run io.github.tzerokyi.RetroPrint
 
 The application has X11/XWayland and GPU access. File dialogs use the desktop portal. The application has no network permission.
 
+A single-file bundle does not include the repository AppStream catalog used by software centers. The application MetaInfo includes the developer and a screenshot URL, but a complete store page and automatic updates require a published Flatpak repository or Flathub. The screenshot URL will work after the GitHub repository becomes public.
+
 ## Updating Cargo dependencies
 
 When `Cargo.lock` changes, regenerate `cargo-sources.json` with the [Flatpak Cargo generator](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo):
