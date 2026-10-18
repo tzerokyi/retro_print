@@ -1,0 +1,96 @@
+name: Rust CI and Linux release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Format, lint, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Tests
+        run: cargo test --locked
+
+  linux:
+    name: Build Linux x86-64
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build release binary
+        run: cargo build --release --locked
+      - name: Package Linux ZIP
+        shell: bash
+        run: |
+          mkdir -p package/assets/icons package/assets/noise
+          install -m755 target/release/retroprint package/retroprint
+          cp README.md LICENSE package/
+          cp assets/icons/LUCIDE_LICENSE.txt package/assets/icons/
+          cp assets/noise/LICENSE.txt package/assets/noise/
+          cd package
+          zip -9 ../retroprint-linux-x86_64.zip retroprint README.md LICENSE assets/icons/LUCIDE_LICENSE.txt assets/noise/LICENSE.txt
+      - uses: actions/upload-artifact@v6
+        with:
+          name: retroprint-linux-x86_64
+          path: retroprint-linux-x86_64.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  flatpak:
+    name: Build Flatpak x86-64
+    needs: validate
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-26.08
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v7
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: retroprint-linux-x86_64.flatpak
+          manifest-path: flatpak/io.github.tzerokyi.RetroPrint.json
+          artifact-name: retroprint-flatpak-x86_64
+
+  publish:
+    name: Publish tagged release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, flatpak]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: retroprint-linux-x86_64
+          path: release/linux
+      - uses: actions/download-artifact@v8
+        with:
+          name: retroprint-flatpak-x86_64
+          path: release/flatpak
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          release/linux/retroprint-linux-x86_64.zip
+          release/flatpak/retroprint-linux-x86_64.flatpak
+          --repo "$GITHUB_REPOSITORY"
+          --title "$GITHUB_REF_NAME"
+          --generate-notes
+          --verify-tag

@@ -1,0 +1,9 @@
+The bundled blue-noise-128.png was copied from:
+https://github.com/Calinou/free-blue-noise-textures/blob/master/128_128/LDR_LLL1_0.png
+
+Original creator: Christoph Peters (Moments in Graphics), 2016–2017.
+License: Creative Commons CC0 1.0 Universal (public domain dedication).
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Upstream license: https://github.com/Calinou/free-blue-noise-textures/blob/master/LICENSE.txt
+Upstream legal code: https://github.com/Calinou/free-blue-noise-textures/blob/master/COPYING.txt

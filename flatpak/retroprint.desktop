@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=RetroPrint
+Comment=Create two-color stipple artwork from images
+Exec=retroprint %f
+Icon=retroprint
+Terminal=false
+Categories=Graphics;2DGraphics;RasterGraphics;
+MimeType=image/png;image/jpeg;image/webp;

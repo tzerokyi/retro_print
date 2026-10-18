@@ -1,0 +1,21 @@
+[package]
+name = "retroprint"
+version = "0.3.0"
+edition = "2024"
+description = "A small offline Rust app for vintage stipple and two-color print effects"
+license = "MIT"
+repository = "https://github.com/tzerokyi/retro_print"
+
+[dependencies]
+eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+egui_extras = { version = "0.37", default-features = false, features = ["svg"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+png = "0.18"
+rfd = "0.17"
+winit = { version = "0.30", default-features = false, features = ["x11"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true

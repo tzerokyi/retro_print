@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>RetroPrint</title>
+  <defs>
+    <pattern id="dots" width="13" height="13" patternUnits="userSpaceOnUse">
+      <circle cx="6.5" cy="6.5" r="3.4" fill="#e9a36f"/>
+    </pattern>
+    <clipPath id="round">
+      <circle cx="64" cy="64" r="50"/>
+    </clipPath>
+  </defs>
+  <circle cx="64" cy="64" r="58" fill="#171b20"/>
+  <g clip-path="url(#round)">
+    <rect x="14" y="14" width="100" height="100" fill="url(#dots)"/>
+  </g>
+</svg>

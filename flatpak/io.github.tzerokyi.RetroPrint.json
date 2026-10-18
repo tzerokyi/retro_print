@@ -1,0 +1,44 @@
+{
+  "id": "io.github.tzerokyi.RetroPrint",
+  "runtime": "org.freedesktop.Platform",
+  "runtime-version": "26.08",
+  "sdk": "org.freedesktop.Sdk",
+  "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
+  "command": "retroprint",
+  "rename-desktop-file": "retroprint.desktop",
+  "rename-appdata-file": "retroprint.metainfo.xml",
+  "rename-icon": "retroprint",
+  "finish-args": [
+    "--share=ipc",
+    "--socket=x11",
+    "--device=dri"
+  ],
+  "modules": [
+    {
+      "name": "retroprint",
+      "buildsystem": "simple",
+      "build-options": {
+        "append-path": "/usr/lib/sdk/rust-stable/bin",
+        "env": {"CARGO_NET_OFFLINE": "true"}
+      },
+      "build-commands": [
+        "install -Dm644 cargo/config .cargo/config.toml",
+        "cargo build --offline --release --locked",
+        "install -Dm755 target/release/retroprint /app/bin/retroprint",
+        "install -Dm644 retroprint.desktop /app/share/applications/retroprint.desktop",
+        "install -Dm644 retroprint.metainfo.xml /app/share/metainfo/retroprint.metainfo.xml",
+        "install -Dm644 retroprint.svg /app/share/icons/hicolor/scalable/apps/retroprint.svg",
+        "install -Dm644 LICENSE /app/share/licenses/retroprint/LICENSE",
+        "install -Dm644 assets/icons/LUCIDE_LICENSE.txt /app/share/licenses/retroprint/LUCIDE_LICENSE.txt",
+        "install -Dm644 assets/noise/LICENSE.txt /app/share/licenses/retroprint/BLUE_NOISE_LICENSE.txt"
+      ],
+      "sources": [
+        {"type": "dir", "path": "..", "skip": [".git", "target", "dist", "build", "repo", ".flatpak-builder", "flatpak"]},
+        "cargo-sources.json",
+        {"type": "file", "path": "retroprint.desktop"},
+        {"type": "file", "path": "retroprint.metainfo.xml"},
+        {"type": "file", "path": "retroprint.svg"}
+      ]
+    }
+  ]
+}

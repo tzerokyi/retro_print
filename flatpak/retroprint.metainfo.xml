@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.tzerokyi.RetroPrint</id>
+  <name>RetroPrint</name>
+  <summary>Create two-color stipple artwork from images</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <url type="homepage">https://github.com/tzerokyi/retro_print</url>
+  <description>
+    <p>RetroPrint turns local images into two-color artwork with organic grain or fine stipple texture. Adjust the ink, paper, contrast, threshold, and grain before exporting a PNG.</p>
+  </description>
+  <launchable type="desktop-id">io.github.tzerokyi.RetroPrint.desktop</launchable>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.3.0" date="2026-10-19" />
+  </releases>
+</component>

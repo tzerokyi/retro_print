@@ -1,0 +1,9 @@
+/target/
+/dist/
+/.flatpak-builder/
+*.png
+*.jpg
+*.jpeg
+*.webp
+!assets/noise/blue-noise-128.png
+!assets/retroprint-preview.png
