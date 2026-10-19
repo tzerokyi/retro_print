@@ -67,7 +67,7 @@ jobs:
         shell: pwsh
         run: |
           $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USERPROFILE '.cargo' }
-          $env:RUSTFLAGS = "--remap-path-prefix=$env:GITHUB_WORKSPACE=/src --remap-path-prefix=$cargoHome=/cargo"
+          $env:RUSTFLAGS = "-C target-feature=+crt-static --remap-path-prefix=$env:GITHUB_WORKSPACE=/src --remap-path-prefix=$cargoHome=/cargo"
           cargo build --release --locked
       - name: Package Windows ZIP
         shell: pwsh
