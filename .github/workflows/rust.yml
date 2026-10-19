@@ -1,4 +1,4 @@
-name: Rust CI and Linux release
+name: Rust CI and desktop release
 
 on:
   push:
@@ -54,6 +54,37 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  windows:
+    name: Build Windows x86-64
+    needs: validate
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Windows tests
+        run: cargo test --locked
+      - name: Build release executable
+        shell: pwsh
+        run: |
+          $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USERPROFILE '.cargo' }
+          $env:RUSTFLAGS = "--remap-path-prefix=$env:GITHUB_WORKSPACE=/src --remap-path-prefix=$cargoHome=/cargo"
+          cargo build --release --locked
+      - name: Package Windows ZIP
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force package/assets/icons, package/assets/noise | Out-Null
+          Copy-Item target/release/retroprint.exe package/retroprint.exe
+          Copy-Item README.md, LICENSE package/
+          Copy-Item assets/icons/LUCIDE_LICENSE.txt package/assets/icons/
+          Copy-Item assets/noise/LICENSE.txt package/assets/noise/
+          Compress-Archive -Path package/* -DestinationPath retroprint-windows-x86_64.zip
+      - uses: actions/upload-artifact@v6
+        with:
+          name: retroprint-windows-x86_64
+          path: retroprint-windows-x86_64.zip
+          if-no-files-found: error
+          retention-days: 30
+
   flatpak:
     name: Build Flatpak x86-64
     needs: validate
@@ -72,7 +103,7 @@ jobs:
   publish:
     name: Publish tagged release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [linux, flatpak]
+    needs: [linux, flatpak, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -85,6 +116,10 @@ jobs:
         with:
           name: retroprint-flatpak-x86_64
           path: release/flatpak
+      - uses: actions/download-artifact@v8
+        with:
+          name: retroprint-windows-x86_64
+          path: release/windows
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -92,6 +127,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME"
           release/linux/retroprint-linux-x86_64.zip
           release/flatpak/retroprint-linux-x86_64.flatpak
+          release/windows/retroprint-windows-x86_64.zip
           --repo "$GITHUB_REPOSITORY"
           --title "$GITHUB_REF_NAME"
           --generate-notes

@@ -8,7 +8,7 @@ Version 0.3.0 introduces two selectable render engines: the familiar clustered *
 
 The UI uses the official [Lucide](https://lucide.dev/) vector icon set for buttons, controls, import affordances, and status indicators. Icons are bundled into the executable; no separate font or installation is required.
 
-The [GitHub Actions workflow](.github/workflows/rust.yml) checks formatting, linting, and tests on pushes/PRs, then builds a Linux x86-64 ZIP and Flatpak bundle. Push a `v*` tag to publish both as GitHub Release assets.
+The [GitHub Actions workflow](.github/workflows/rust.yml) checks formatting, linting, and tests on pushes/PRs, then builds Linux x86-64 and Windows x86-64 ZIPs plus a Flatpak bundle. Push a `v*` tag to publish all three as GitHub Release assets.
 
 ## Features
 
@@ -54,6 +54,10 @@ chmod +x retroprint
 ```
 
 That executable is a convenience build, not an AppImage or a statically linked universal Linux package. If it does not start because of graphics/session/runtime compatibility, compile locally with Cargo instead.
+
+### Windows executable
+
+Download `retroprint-windows-x86_64.zip` from the GitHub release, extract it, and double-click `retroprint.exe`. This is a portable executable; no installer or separate asset files are required. Windows may show a SmartScreen warning because the executable is not code signed. The Windows build runs tests in GitHub Actions, but interactive desktop behavior should also be checked on a Windows machine.
 
 ### Flatpak bundle
 
