@@ -497,8 +497,8 @@ mod tests {
         assert_eq!(fitted.center(), bounds.center());
         let scaled = zoomed_image(bounds, vec2(1200.0, 800.0), 2.0, vec2(900.0, 900.0));
         assert_eq!(scaled.size(), vec2(600.0, 400.0));
-        assert_eq!(scaled.right(), bounds.right());
-        assert_eq!(scaled.bottom(), bounds.bottom());
+        assert_eq!(scaled.left(), bounds.left());
+        assert_eq!(scaled.top(), bounds.top());
     }
 
     #[test]
