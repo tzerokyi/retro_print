@@ -349,18 +349,18 @@ impl RetroPrintApp {
             });
         ui.add_space(14.0);
         ui.label(RichText::new("Texture Mode").size(12.0).color(view::TEXT));
+        let mode_width = (ui.available_width() - 7.0) * 0.5;
         egui::Grid::new("texture_modes").num_columns(2).spacing([7.0, 7.0]).show(ui, |ui| {
-            let width = (ui.available_width() - 7.0) * 0.5;
             for (index, (mode, label)) in [
                 (StippleMode::Organic, "Organic"),
                 (StippleMode::Fine, "Fine Stipple"),
                 (StippleMode::Bayer, "Bayer 8×8"),
                 (StippleMode::Atkinson, "Atkinson"),
-            ] {
+            ].into_iter().enumerate() {
                 let selected = self.settings.mode == mode;
                 if ui
                     .add_sized(
-                        [width, 32.0],
+                        [mode_width, 32.0],
                         egui::Button::new(RichText::new(label).size(11.5)).selected(selected),
                     )
                     .clicked()
