@@ -205,6 +205,11 @@ pub fn fit_image(bounds: Rect, natural_size: Vec2) -> Rect {
     Rect::from_center_size(bounds.center(), fitted)
 }
 
+fn wipe_divider_x(image: Rect, viewport: Rect, fraction: f32) -> f32 {
+    (image.left() + image.width() * fraction.clamp(0.0, 1.0))
+        .clamp(viewport.left(), viewport.right())
+}
+
 pub fn zoomed_image(bounds: Rect, natural_size: Vec2, zoom: f32, pan: Vec2) -> Rect {
     let base = fit_image(bounds, natural_size);
     let size = base.size() * zoom.clamp(1.0, 8.0);
@@ -398,7 +403,7 @@ pub fn canvas(
             *compare.fraction =
                 ((pointer.x - image_rect.left()) / image_rect.width()).clamp(0.02, 0.98);
         }
-        let divider_x = image_rect.left() + image_rect.width() * *compare.fraction;
+        let divider_x = wipe_divider_x(image_rect, viewport, *compare.fraction);
         let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
         p.with_clip_rect(viewport)
             .image(original.id(), image_rect, uv, Color32::WHITE);
@@ -407,16 +412,16 @@ pub fn canvas(
             .image(printed.id(), image_rect, uv, Color32::WHITE);
         p.line_segment(
             [
-                pos2(divider_x, image_rect.top()),
-                pos2(divider_x, image_rect.bottom()),
+                pos2(divider_x, viewport.top()),
+                pos2(divider_x, viewport.bottom()),
             ],
             Stroke::new(2.0, ACCENT),
         );
-        p.circle_filled(pos2(divider_x, image_rect.center().y), 11.0, ACCENT);
+        p.circle_filled(pos2(divider_x, viewport.center().y), 11.0, ACCENT);
         p.line_segment(
             [
-                pos2(divider_x - 4.0, image_rect.center().y),
-                pos2(divider_x + 4.0, image_rect.center().y),
+                pos2(divider_x - 4.0, viewport.center().y),
+                pos2(divider_x + 4.0, viewport.center().y),
             ],
             Stroke::new(2.0, BACKGROUND),
         );
@@ -489,6 +494,15 @@ pub fn canvas(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wipe_divider_is_clipped_to_visible_workspace() {
+        let viewport = Rect::from_min_size(pos2(100.0, 100.0), vec2(300.0, 200.0));
+        let zoomed = Rect::from_min_size(pos2(-100.0, -50.0), vec2(800.0, 600.0));
+        assert_eq!(wipe_divider_x(zoomed, viewport, 0.0), viewport.left());
+        assert_eq!(wipe_divider_x(zoomed, viewport, 1.0), viewport.right());
+        assert_eq!(wipe_divider_x(zoomed, viewport, 0.5), 300.0);
+    }
 
     #[test]
     fn zoom_keeps_image_clamped_to_viewport() {
