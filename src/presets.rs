@@ -208,10 +208,6 @@ mod look_tests {
                     "{} and {}",
                     recipe.label, other.label
                 );
-                    recipe.mode, other.mode,
-                    "{} and {}",
-                    recipe.label, other.label
-                );
             }
         }
     }
