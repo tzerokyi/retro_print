@@ -365,7 +365,7 @@ impl RetroPrintApp {
                 if ui
                     .add_sized(
                         [mode_width, 32.0],
-                        egui::Button::new(RichText::new(label).size(11.5)).selected(selected),
+                        egui::Button::new(RichText::new(label).size(if mode == StippleMode::FloydSteinberg { 9.5 } else { 11.5 })).selected(selected),
                     )
                     .clicked()
                     && !selected
