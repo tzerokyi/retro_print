@@ -268,7 +268,8 @@ mod tests {
         assert!(text.contains(r#"viewBox="0 0 6 4""#));
         assert!(text.contains(r##"fill="#0A141E""##));
         assert!(text.contains(r#"fill-opacity="0.501960784""#));
-        assert!(text.contains("v4"));
+        assert!(text.contains("v2"));
+        assert!(text.contains("M1 0h3v2h-3z"));
         assert!(text.contains("<path "));
         assert!(!text.contains(r#"x="0" y="0" width="1""#));
     }
