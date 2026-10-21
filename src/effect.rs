@@ -456,10 +456,12 @@ mod tests {
         let mut s = defaults();
         s.threshold = 10_000.0;
         s.grain_size = -100.0;
+        s.pixel_size = 250.0;
         s.contrast = f32::NAN;
         let s = s.normalized();
         assert_eq!(s.threshold, 100.0);
         assert_eq!(s.grain_size, 0.0);
+        assert_eq!(s.pixel_size, 100.0);
         assert_eq!(s.contrast, 50.0);
     }
 
@@ -586,26 +588,116 @@ mod dithering_tests {
     use super::*;
     use crate::presets::defaults;
 
+    fn gradient() -> RgbaImage {
+        RgbaImage::from_fn(192, 128, |x, y| {
+            let value = ((x * 2 + y) % 256) as u8;
+            Rgba([value, value, value, 255])
+        })
+    }
+
     #[test]
-    fn renderers_are_distinct_and_repeatable() {
-        let source = RgbaImage::from_fn(96, 96, |x, y| {
-            let v = ((x * 2 + y) % 256) as u8;
-            Rgba([v, v, v, 255])
-        });
+    fn every_mode_is_deterministic_and_binary() {
+        let input = gradient();
         let mut s = defaults();
-        let mut outputs = Vec::new();
-        for mode in [StippleMode::Organic, StippleMode::Fine, StippleMode::Bayer, StippleMode::Atkinson] {
+        for mode in [
+            StippleMode::Organic,
+            StippleMode::Fine,
+            StippleMode::Threshold,
+            StippleMode::Bayer4,
+            StippleMode::Bayer,
+            StippleMode::FloydSteinberg,
+            StippleMode::Atkinson,
+        ] {
             s.mode = mode;
-            let output = render(&source, &s);
-            assert_eq!(output, render(&source, &s));
-            assert_eq!(output.dimensions(), source.dimensions());
-            assert!(output.pixels().all(|p| p.0[..3] == s.ink || p.0[..3] == s.paper));
-            outputs.push(output);
+            let output = render(&input, &s);
+            assert_eq!(output, render(&input, &s));
+            assert_eq!(output.dimensions(), input.dimensions());
+            assert!(output
+                .pixels()
+                .all(|p| p.0[..3] == s.ink || p.0[..3] == s.paper));
+        }
+    }
+
+    #[test]
+    fn pixel_modes_produce_distinct_patterns() {
+        let input = gradient();
+        let mut s = defaults();
+        s.grain_amount = 100.0;
+        s.irregularity = 0.0;
+        s.pixel_size = 0.0;
+        let mut outputs = Vec::new();
+        for mode in [
+            StippleMode::Threshold,
+            StippleMode::Bayer4,
+            StippleMode::Bayer,
+            StippleMode::FloydSteinberg,
+            StippleMode::Atkinson,
+        ] {
+            s.mode = mode;
+            outputs.push(render(&input, &s));
         }
         for i in 0..outputs.len() {
-            for j in i + 1..outputs.len() {
-                assert_ne!(outputs[i], outputs[j]);
+            for j in (i + 1)..outputs.len() {
+                assert_ne!(outputs[i], outputs[j], "{i} and {j} match");
             }
         }
+    }
+
+    #[test]
+    fn pixel_size_changes_pattern_without_resizing() {
+        let input = gradient();
+        let mut s = defaults();
+        s.mode = StippleMode::Bayer;
+        s.grain_amount = 100.0;
+        s.pixel_size = 0.0;
+        let fine = render(&input, &s);
+        s.pixel_size = 100.0;
+        let coarse = render(&input, &s);
+        assert_ne!(fine, coarse);
+        assert_eq!(coarse.dimensions(), input.dimensions());
+        assert!(pixel_cell_size(&input, &s) > 1);
+    }
+
+    #[test]
+    fn pixel_mode_alpha_and_cutout_follow_original() {
+        let input = RgbaImage::from_fn(24, 20, |x, y| {
+            let alpha = if x == 0 { 0 } else if y % 2 == 0 { 64 } else { 255 };
+            Rgba([128, 128, 128, alpha])
+        });
+        let mut s = defaults();
+        s.pixel_size = 100.0;
+        for mode in [
+            StippleMode::Threshold,
+            StippleMode::Bayer4,
+            StippleMode::Bayer,
+            StippleMode::FloydSteinberg,
+            StippleMode::Atkinson,
+        ] {
+            s.mode = mode;
+            let opaque = render(&input, &s);
+            for (out, original) in opaque.pixels().zip(input.pixels()) {
+                assert_eq!(out[3], original[3]);
+            }
+            s.transparent_paper = true;
+            let cutout = render(&input, &s);
+            for (out, original) in cutout.pixels().zip(input.pixels()) {
+                assert!(out[3] == 0 || out[3] == original[3]);
+            }
+            s.transparent_paper = false;
+        }
+    }
+
+    #[test]
+    fn threshold_preserves_black_and_white_regions() {
+        let image = RgbaImage::from_fn(64, 32, |x, _| {
+            let value = if x < 32 { 0 } else { 255 };
+            Rgba([value, value, value, 255])
+        });
+        let mut s = defaults();
+        s.mode = StippleMode::Threshold;
+        s.pixel_size = 0.0;
+        let output = render(&image, &s);
+        assert_eq!(output.get_pixel(0, 0).0[..3], s.ink);
+        assert_eq!(output.get_pixel(63, 0).0[..3], s.paper);
     }
 }
