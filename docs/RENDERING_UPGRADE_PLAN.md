@@ -5,13 +5,13 @@ Make the modes visibly different by implementing distinct binary-pixel algorithm
 
 ## Implementation checklist
 - [x] Audit the current renderers and inspector integration.
-- [ ] Add Hard Threshold and Floyd–Steinberg renderers.
-- [ ] Separate pixel-cell size from grain texture and ink coverage.
-- [ ] Rework Bayer and Atkinson through the pixel-grid renderer with correct diffusion kernels.
-- [ ] Preserve source dimensions and original alpha in output.
-- [ ] Add all engines to the inspector and give existing recipes clear algorithm choices.
-- [ ] Add tests for determinism, distinct modes, alpha, source dimensions and pixel-cell scaling.
-- [ ] Verify committed source and available CI status.
+- [x] Add Hard Threshold and Floyd–Steinberg renderers.
+- [x] Separate pixel-cell size from grain texture and ink coverage.
+- [x] Rework Bayer and Atkinson through the pixel-grid renderer with correct diffusion kernels.
+- [x] Preserve source dimensions and original alpha in output.
+- [x] Add all engines to the inspector and give existing recipes clear algorithm choices.
+- [x] Add tests for determinism, distinct modes, alpha, source dimensions and pixel-cell scaling.
+- [x] Verify committed source and available CI status.
 
 ## Design contracts
 - Organic and Fine Stipple retain their existing implementation and defaults.
@@ -27,3 +27,8 @@ Make the modes visibly different by implementing distinct binary-pixel algorithm
 - Preview and export use the same render pipeline, including mode and resolution parameters.
 - All modes produce only ink or paper colors, retain alpha semantics, and repeat deterministically.
 - Commit code and tests on main; report any build/CI verification limits.
+
+## Verification
+- All changes have been committed to main, and file contents were re-read through the GitHub connector.
+- Tests were added but could not be executed in the current environment because Rust/Cargo are unavailable.
+- GitHub commit-status and workflow-run queries returned no results. Passing CI/build is not asserted.
