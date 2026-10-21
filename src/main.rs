@@ -349,11 +349,13 @@ impl RetroPrintApp {
             });
         ui.add_space(14.0);
         ui.label(RichText::new("Texture Mode").size(12.0).color(view::TEXT));
-        ui.horizontal(|ui| {
-            let width = (ui.available_width() - 8.0) * 0.5;
-            for (mode, label) in [
+        egui::Grid::new("texture_modes").num_columns(2).spacing([7.0, 7.0]).show(ui, |ui| {
+            let width = (ui.available_width() - 7.0) * 0.5;
+            for (index, (mode, label)) in [
                 (StippleMode::Organic, "Organic"),
                 (StippleMode::Fine, "Fine Stipple"),
+                (StippleMode::Bayer, "Bayer 8×8"),
+                (StippleMode::Atkinson, "Atkinson"),
             ] {
                 let selected = self.settings.mode == mode;
                 if ui
@@ -367,11 +369,16 @@ impl RetroPrintApp {
                     self.settings.mode = mode;
                     changed = true;
                 }
+                if index % 2 == 1 {
+                    ui.end_row();
+                }
             }
         });
         let mode_hint = match self.settings.mode {
             StippleMode::Organic => "Soft, clustered analog grain",
             StippleMode::Fine => "Clean dots · sharper edges and detail",
+            StippleMode::Bayer => "Ordered 8×8 halftone grid",
+            StippleMode::Atkinson => "Error-diffused retro pixel print",
         };
         ui.label(RichText::new(mode_hint).size(10.0).color(view::SUBTLE));
         ui.add_space(12.0);
