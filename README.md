@@ -4,7 +4,7 @@ RetroPrint is a compact, offline, cross-platform Rust desktop app that turns pho
 
 ![RetroPrint showing the original image and its two-color print preview](assets/retroprint-preview.png)
 
-Version 0.3.0 introduces two selectable render engines: the familiar clustered **Organic** grain and detail-preserving **Fine Stipple** with edge-aware smoothing, local contrast, and public-domain blue-noise dots. Direct ink/paper spectrum pickers, precise HEX controls, and automatic lossless indexed-PNG compression remain available.
+The editor offers seven rendering modes, from organic stipple and blue-noise dots to hard threshold, ordered Bayer screens, and error diffusion. Pixel-based modes have independent Pixel Size and Dither Strength controls. Colors, alpha-safe transparent paper, and indexed-PNG export are supported.
 
 The UI uses the official [Lucide](https://lucide.dev/) vector icon set for buttons, controls, import affordances, and status indicators. Icons are bundled into the executable; no separate font or installation is required.
 
@@ -14,11 +14,11 @@ The [GitHub Actions workflow](.github/workflows/rust.yml) checks formatting, lin
 
 - Drag-and-drop or open a PNG, JPEG, or still WebP. Click the empty preview area to browse; drops also accept readable file handles when a direct path is unavailable.
 - Side-by-side original and processed previews.
-- **Organic** texture mode for the established analog clumping, or **Fine Stipple** for more even dot spacing and better small-detail/edge separation; Organic remains the default so existing looks are unchanged.
-- Five controls: Grain Size, Grain Amount, Contrast, Threshold, Irregularity.
+- Seven texture modes: Organic, Fine Stipple, Threshold, Bayer 4×4, Bayer 8×8, Floyd–Steinberg, and Atkinson.
+- Independent Pixel Size and Dither Strength controls for pixel-based modes; Grain Size and Grain Amount for Organic/Fine, plus Contrast, Threshold and Irregularity.
 - Independently customizable ink and paper colors, with 2D spectrum pickers, `#RRGGBB` inputs, and six one-click palettes.
 - Transparent Paper option for print-ready cutouts.
-- Deterministic seed, Reseed, and Reset.
+- Seven one-click print recipes, deterministic seed, Reseed, and Reset.
 - Save original-resolution PNG in a background thread, automatically using 1-bit indexed PNG for two-color images; preserve all input alpha/color values when more palette entries are needed.
 - No cloud, telemetry, Python, Photoshop, OpenCV, or FFmpeg.
 
@@ -75,9 +75,9 @@ The standalone bundle is a direct download, not a software-store listing or an a
 ## Usage
 
 1. Drag an image into the window or click **Open Image**.
-2. Choose **Organic** or **Fine Stipple** in **Texture Mode**. Fine Stipple reduces unwanted random clusters in midtones and holds silhouettes/details more clearly; Organic retains softer analog clumping.
-3. Use **Grain Size** to choose the scale and **Grain Amount** for texture strength. These settings remain available in both modes; Fine Stipple uses Grain Size for subtle secondary organic structure rather than the primary dot spacing.
-4. Tune **Contrast**, **Threshold**, and **Irregularity** to preserve shape and create ink breakup.
+2. Choose a print recipe or one of seven **Texture Mode** engines. Organic and Fine preserve their granular appearance; pixel-based modes create ordered, binary, or error-diffusion patterns.
+3. In pixel-based modes, adjust **Pixel Size** to change the working grid and **Dither Strength** to change distribution (except Threshold). In Organic/Fine, use **Grain Size** and **Grain Amount**.
+4. Tune **Contrast**, **Threshold**, and, when applicable, **Irregularity** to shape the print.
 5. Choose the **Ink** and **Paper** colors independently: click either swatch for its hue/saturation spectrum or type a six-digit HEX color (`#D45A36`); alternatively select a quick palette.
 6. Optionally enable **Transparent Paper** to export only the printed ink. This is **not** semantic background removal: highlights and unprinted areas also become transparent.
 7. Click **Export PNG** and select a file.
@@ -112,7 +112,7 @@ cargo test --locked
 - No automatic object segmentation or background removal.
 - No ICC color-management pipeline or guaranteed exact print color reproduction.
 - Very large images can consume considerable memory before input limits are evaluated.
-- Preview and output use the same normalized grain scale, but resampling means individual grain dots will not match pixel-for-pixel.
+- Preview and output use the same rendering pipeline and relative pixel-grid scale, but resampling means individual pixels may differ.
 
 ## License
 
