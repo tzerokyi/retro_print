@@ -90,6 +90,13 @@ pub fn apply_theme(ctx: &egui::Context) {
     let mut visuals = egui::Visuals::dark();
     visuals.panel_fill = BACKGROUND;
     visuals.window_fill = PANEL;
+    visuals.window_stroke = Stroke::new(1.0, BORDER);
+    visuals.window_shadow = egui::Shadow {
+        offset: [0, 8],
+        blur: 24,
+        spread: 0,
+        color: Color32::from_black_alpha(110),
+    };
     visuals.override_text_color = Some(TEXT);
     visuals.selection.bg_fill = ACCENT.gamma_multiply(0.32);
     visuals.selection.stroke.color = ACCENT;
@@ -106,16 +113,16 @@ pub fn apply_theme(ctx: &egui::Context) {
     ctx.set_visuals(visuals);
 
     ctx.style_mut_of(egui::Theme::Dark, |style| {
-        style.spacing.item_spacing = vec2(8.0, 8.0);
-        style.spacing.button_padding = vec2(14.0, 9.0);
+        style.spacing.item_spacing = vec2(8.0, 9.0);
+        style.spacing.button_padding = vec2(12.0, 8.0);
         style.spacing.slider_width = 190.0;
     });
 }
 
 pub fn separator(ui: &mut egui::Ui) {
-    ui.add_space(12.0);
+    ui.add_space(16.0);
     ui.separator();
-    ui.add_space(12.0);
+    ui.add_space(16.0);
 }
 
 pub fn section(ui: &mut egui::Ui, text: &str, which: Icon) {
@@ -136,12 +143,13 @@ pub fn slider(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
                 .corner_radius(5)
                 .inner_margin(egui::Margin::symmetric(9, 4))
                 .show(ui, |ui| {
-                    ui.label(
-                        RichText::new(format!("{value:.0}"))
-                            .monospace()
-                            .color(TEXT)
-                            .size(11.0),
-                    );
+                    ui.add(
+                        egui::DragValue::new(value)
+                            .range(0.0..=100.0)
+                            .speed(0.25)
+                            .fixed_decimals(0)
+                            .suffix("%"),
+                    ).on_hover_text("Drag or double-click to type an exact value");
                 });
         });
     });
@@ -150,6 +158,7 @@ pub fn slider(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
             [ui.available_width(), 17.0],
             egui::Slider::new(value, 0.0..=100.0).show_value(false),
         )
+        .on_hover_text("Drag to adjust • double-click the value to enter a number")
         .changed();
     ui.add_space(8.0);
     changed
@@ -189,8 +198,8 @@ pub fn fit_image(bounds: Rect, natural_size: Vec2) -> Rect {
 }
 
 fn card(p: &Painter, rect: Rect, title: &str, texture: Option<&TextureHandle>) {
-    p.rect_filled(rect, 6, SURFACE);
-    p.rect_stroke(rect, 6, Stroke::new(1.0, BORDER), StrokeKind::Inside);
+    p.rect_filled(rect, 9, SURFACE);
+    p.rect_stroke(rect, 9, Stroke::new(1.0, BORDER), StrokeKind::Inside);
     let content = Rect::from_min_max(
         rect.min + vec2(14.0, 14.0),
         pos2(rect.max.x - 14.0, rect.max.y - 43.0),
@@ -242,8 +251,8 @@ pub fn canvas(
     p.text(
         inner.min,
         Align2::LEFT_TOP,
-        "Preview",
-        FontId::proportional(24.0),
+        "WORKSPACE",
+        FontId::proportional(17.0),
         TEXT,
     );
     if let Some(name) = filename {
