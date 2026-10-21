@@ -1,6 +1,6 @@
 //! File I/O and source-preview preparation.
 
-use std::{collections::HashMap, error::Error, fmt, fs::File, io::BufWriter, path::Path};
+use std::{collections::HashMap, error::Error, fmt, fs::File, io::{self, BufWriter, Write}, path::Path};
 
 use image::{ImageFormat, RgbaImage, imageops::FilterType};
 use png::{BitDepth, ColorType, Compression, Encoder};
@@ -110,6 +110,79 @@ pub fn save_png(path: &Path, image: &RgbaImage) -> Result<(), Box<dyn Error + Se
     }
 }
 
+#[derive(Clone, Copy)]
+struct SvgRun {
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    color: [u8; 4],
+}
+
+fn write_rect<W: Write>(writer: &mut W, run: SvgRun) -> io::Result<()> {
+    write!(
+        writer,
+        r##"<rect x="{}" y="{}" width="{}" height="{}" fill="#{:02X}{:02X}{:02X}""##,
+        run.x, run.y, run.width, run.height,
+        run.color[0], run.color[1], run.color[2]
+    )?;
+    if run.color[3] != 255 {
+        write!(writer, r#" fill-opacity="{:.9}""#, run.color[3] as f64 / 255.0)?;
+    }
+    writeln!(writer, "/>")
+}
+
+pub fn write_svg<W: Write>(mut writer: W, image: &RgbaImage) -> io::Result<()> {
+    writeln!(
+        writer,
+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}" viewBox="0 0 {} {}" shape-rendering="crispEdges">"#,
+        image.width(), image.height(), image.width(), image.height()
+    )?;
+
+    let mut pending: Vec<SvgRun> = Vec::new();
+    for y in 0..image.height() {
+        let mut next = Vec::new();
+        let mut previous = pending.into_iter().peekable();
+        let mut x = 0;
+        while x < image.width() {
+            let color = image.get_pixel(x, y).0;
+            let start = x;
+            while x < image.width() && image.get_pixel(x, y).0 == color {
+                x += 1;
+            }
+            if color[3] == 0 { continue; }
+            while previous.peek().is_some_and(|p| p.x < start) {
+                write_rect(&mut writer, previous.next().expect("run exists"))?;
+            }
+            if previous.peek().is_some_and(|p| p.x == start && p.width == x - start && p.color == color) {
+                let mut run = previous.next().expect("matching run exists");
+                run.height += 1;
+                next.push(run);
+            } else {
+                next.push(SvgRun {
+                    x: start,
+                    y,
+                    width: x - start,
+                    height: 1,
+                    color,
+                });
+            }
+        }
+        for run in previous {
+            write_rect(&mut writer, run)?;
+        }
+        pending = next;
+    }
+    for run in pending { write_rect(&mut writer, run)?; }
+    writeln!(writer, "</svg>")
+}
+
+pub fn save_svg(path: &Path, image: &RgbaImage) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let file = BufWriter::new(File::create(path)?);
+    write_svg(file, image)?;
+    Ok(())
+}
+
 fn indexed_palette(image: &RgbaImage) -> Option<IndexedPalette> {
     let mut colors = Vec::new();
     let mut indices = HashMap::new();
@@ -130,6 +203,24 @@ fn indexed_palette(image: &RgbaImage) -> Option<IndexedPalette> {
 mod tests {
     use super::*;
     use image::Rgba;
+
+    #[test]
+    fn svg_merges_solid_rectangles_and_preserves_alpha() {
+        let image = RgbaImage::from_fn(6, 4, |x, y| {
+            if x == 0 { Rgba([0, 0, 0, 0]) }
+            else if x < 4 { Rgba([10, 20, 30, 255]) }
+            else if y < 2 { Rgba([200, 100, 50, 128]) }
+            else { Rgba([10, 20, 30, 255]) }
+        });
+        let mut output = Vec::new();
+        write_svg(&mut output, &image).unwrap();
+        let text = String::from_utf8(output).unwrap();
+        assert!(text.contains(r#"viewBox="0 0 6 4""#));
+        assert!(text.contains(r##"fill="#0A141E""##));
+        assert!(text.contains(r#"fill-opacity="0.501960784""#));
+        assert!(text.contains(r#"height="4""#));
+        assert!(!text.contains(r#"x="0" y="0" width="1""#));
+    }
 
     #[test]
     fn small_preview_is_unchanged() {
