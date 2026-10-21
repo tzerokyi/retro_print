@@ -32,3 +32,26 @@ Make the modes visibly different by implementing distinct binary-pixel algorithm
 - All changes have been committed to main, and file contents were re-read through the GitHub connector.
 - Tests were added but could not be executed in the current environment because Rust/Cargo are unavailable.
 - GitHub commit-status and workflow-run queries returned no results. Passing CI/build is not asserted.
+
+## Phase 2 — Printable output and editor interaction
+
+- [x] Implement circular halftone dots and diagonal line-screen rendering.
+- [x] Add controllable tone-grid blur without modifying legacy Organic/Fine algorithms.
+- [x] Use solid inspector scrollbars that allocate their own gutter.
+- [x] Enable nearest-neighbor sampling of processed images.
+- [x] Export source-resolution vector SVG with merged rectangular runs and retained alpha.
+- [x] Add draggable original/result wipe comparison.
+- [x] Update mode descriptions, recipes, and README.
+- [x] Add SVG merging, opacity, pattern-shape and blur tests as source files.
+- [ ] Execute Rust formatting, linting, compilation, unit tests and interactive GUI QA.
+
+## Remaining verification requirements
+
+```bash
+cargo fmt --all
+cargo clippy --all-targets --locked -- -D warnings
+cargo test --locked
+cargo run --release -- /path/to/sample.png
+```
+
+Build/runtime validation is still required before calling this release fully verified.
