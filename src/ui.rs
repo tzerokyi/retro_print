@@ -205,7 +205,23 @@ pub fn fit_image(bounds: Rect, natural_size: Vec2) -> Rect {
     Rect::from_center_size(bounds.center(), fitted)
 }
 
-fn card(p: &Painter, rect: Rect, title: &str, texture: Option<&TextureHandle>) {
+pub fn zoomed_image(bounds: Rect, natural_size: Vec2, zoom: f32, pan: Vec2) -> Rect {
+    let base = fit_image(bounds, natural_size);
+    let size = base.size() * zoom.clamp(1.0, 8.0);
+    let max_x = ((size.x - bounds.width()) * 0.5).max(0.0);
+    let max_y = ((size.y - bounds.height()) * 0.5).max(0.0);
+    let offset = vec2(pan.x.clamp(-max_x, max_x), pan.y.clamp(-max_y, max_y));
+    Rect::from_center_size(bounds.center() + offset, size)
+}
+
+fn card(
+    p: &Painter,
+    rect: Rect,
+    title: &str,
+    texture: Option<&TextureHandle>,
+    zoom: f32,
+    pan: Vec2,
+) {
     p.rect_filled(rect, 9, SURFACE);
     p.rect_stroke(rect, 9, Stroke::new(1.0, BORDER), StrokeKind::Inside);
     let content = Rect::from_min_max(
@@ -214,8 +230,8 @@ fn card(p: &Painter, rect: Rect, title: &str, texture: Option<&TextureHandle>) {
     );
     p.rect_filled(content, 3, BACKGROUND);
     if let Some(texture) = texture {
-        let image = fit_image(content, texture.size_vec2());
-        p.image(
+        let image = zoomed_image(content, texture.size_vec2(), zoom, pan);
+        p.with_clip_rect(content).image(
             texture.id(),
             image,
             Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
@@ -244,6 +260,8 @@ fn card(p: &Painter, rect: Rect, title: &str, texture: Option<&TextureHandle>) {
 pub struct CompareView<'a> {
     pub enabled: bool,
     pub fraction: &'a mut f32,
+    pub zoom: &'a mut f32,
+    pub pan: &'a mut Vec2,
 }
 
 pub fn canvas(
@@ -260,6 +278,19 @@ pub fn canvas(
     let p = ui.painter_at(bounds);
     p.rect_filled(bounds, 0, BACKGROUND);
 
+    if original.is_some() && response.hovered() {
+        let scroll = ui.ctx().input(|input| input.smooth_scroll_delta.y);
+        if scroll.abs() > 0.5 {
+            *compare.zoom = (*compare.zoom * (scroll * 0.0015).exp()).clamp(1.0, 8.0);
+        }
+    }
+    if original.is_some() && !compare.enabled && *compare.zoom > 1.0 && response.dragged() {
+        *compare.pan += ui.ctx().input(|input| input.pointer.delta());
+    }
+    if *compare.zoom <= 1.0 {
+        *compare.pan = Vec2::ZERO;
+    }
+
     let margin = if bounds.width() < 670.0 { 15.0 } else { 26.0 };
     let inner = bounds.shrink2(vec2(margin, 18.0));
     p.text(
@@ -274,6 +305,36 @@ pub fn canvas(
             pos2(inner.max.x, inner.min.y + 5.0),
             Align2::RIGHT_TOP,
             name,
+            FontId::proportional(11.0),
+            SUBTLE,
+        );
+    }
+    if original.is_some() && inner.width() >= 480.0 {
+        let y = inner.min.y - 1.0;
+        let x = inner.min.x + 155.0;
+        if ui.put(
+            Rect::from_min_size(pos2(x, y), vec2(30.0, 30.0)),
+            egui::Button::new("−").corner_radius(15),
+        ).on_hover_text("Zoom out").clicked() {
+            *compare.zoom = (*compare.zoom / 1.5).max(1.0);
+        }
+        if ui.put(
+            Rect::from_min_size(pos2(x + 36.0, y), vec2(43.0, 30.0)),
+            egui::Button::new("Fit").corner_radius(15),
+        ).on_hover_text("Fit to workspace").clicked() {
+            *compare.zoom = 1.0;
+            *compare.pan = Vec2::ZERO;
+        }
+        if ui.put(
+            Rect::from_min_size(pos2(x + 85.0, y), vec2(30.0, 30.0)),
+            egui::Button::new("+").corner_radius(15),
+        ).on_hover_text("Zoom in").clicked() {
+            *compare.zoom = (*compare.zoom * 1.5).min(8.0);
+        }
+        p.text(
+            pos2(x + 128.0, y + 15.0),
+            Align2::LEFT_CENTER,
+            format!("{:.0}%", *compare.zoom * 100.0),
             FontId::proportional(11.0),
             SUBTLE,
         );
@@ -317,7 +378,7 @@ pub fn canvas(
     } else if let (Some(original), Some(printed), true) = (original, printed, compare.enabled) {
         p.rect_filled(cards, 10, SURFACE);
         let viewport = cards.shrink2(vec2(16.0, 30.0));
-        let image_rect = fit_image(viewport, original.size_vec2());
+        let image_rect = zoomed_image(viewport, original.size_vec2(), *compare.zoom, *compare.pan);
         if response.dragged()
             && let Some(pointer) = ui.ctx().pointer_interact_pos()
             && image_rect.width() > 0.0
@@ -327,8 +388,9 @@ pub fn canvas(
         }
         let divider_x = image_rect.left() + image_rect.width() * *compare.fraction;
         let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
-        p.image(original.id(), image_rect, uv, Color32::WHITE);
-        let clip = Rect::from_min_max(pos2(divider_x, image_rect.top()), image_rect.max);
+        p.with_clip_rect(viewport)
+            .image(original.id(), image_rect, uv, Color32::WHITE);
+        let clip = Rect::from_min_max(pos2(divider_x, viewport.top()), viewport.max);
         p.with_clip_rect(clip)
             .image(printed.id(), image_rect, uv, Color32::WHITE);
         p.line_segment(
@@ -368,7 +430,7 @@ pub fn canvas(
             pos2(cards.min.x + width + gap, cards.min.y),
             vec2(width, cards.height()),
         );
-        card(&p, original_rect, "O R I G I N A L", original);
+        card(&p, original_rect, "O R I G I N A L", original, *compare.zoom, *compare.pan);
         card(
             &p,
             print_rect,
@@ -378,6 +440,8 @@ pub fn canvas(
                 "P R I N T"
             },
             printed,
+            *compare.zoom,
+            *compare.pan,
         );
     }
 
@@ -406,6 +470,17 @@ pub fn canvas(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn zoom_keeps_image_clamped_to_viewport() {
+        let bounds = Rect::from_min_size(pos2(0.0, 0.0), vec2(300.0, 200.0));
+        let fitted = zoomed_image(bounds, vec2(1200.0, 800.0), 1.0, vec2(900.0, 900.0));
+        assert_eq!(fitted.center(), bounds.center());
+        let scaled = zoomed_image(bounds, vec2(1200.0, 800.0), 2.0, vec2(900.0, 900.0));
+        assert_eq!(scaled.size(), vec2(600.0, 400.0));
+        assert_eq!(scaled.right(), bounds.right());
+        assert_eq!(scaled.bottom(), bounds.bottom());
+    }
 
     #[test]
     fn fit_centers_and_preserves_aspect() {
