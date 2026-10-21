@@ -203,7 +203,15 @@ mod look_tests {
     fn each_recipe_has_a_distinct_renderer() {
         for (i, recipe) in LOOKS.iter().enumerate() {
             for other in LOOKS.iter().skip(i + 1) {
-                assert_ne!(recipe.mode, other.mode, "{} and {}", recipe.label, other.label);
+                assert_ne!(
+                    recipe.mode, other.mode,
+                    "{} and {}",
+                    recipe.label, other.label
+                );
+                    recipe.mode, other.mode,
+                    "{} and {}",
+                    recipe.label, other.label
+                );
             }
         }
     }

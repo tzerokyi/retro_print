@@ -312,23 +312,35 @@ pub fn canvas(
     if original.is_some() && inner.width() >= 480.0 {
         let y = inner.min.y - 1.0;
         let x = inner.min.x + 155.0;
-        if ui.put(
-            Rect::from_min_size(pos2(x, y), vec2(30.0, 30.0)),
-            egui::Button::new("−").corner_radius(15),
-        ).on_hover_text("Zoom out").clicked() {
+        if ui
+            .put(
+                Rect::from_min_size(pos2(x, y), vec2(30.0, 30.0)),
+                egui::Button::new("−").corner_radius(15),
+            )
+            .on_hover_text("Zoom out")
+            .clicked()
+        {
             *compare.zoom = (*compare.zoom / 1.5).max(1.0);
         }
-        if ui.put(
-            Rect::from_min_size(pos2(x + 36.0, y), vec2(43.0, 30.0)),
-            egui::Button::new("Fit").corner_radius(15),
-        ).on_hover_text("Fit to workspace").clicked() {
+        if ui
+            .put(
+                Rect::from_min_size(pos2(x + 36.0, y), vec2(43.0, 30.0)),
+                egui::Button::new("Fit").corner_radius(15),
+            )
+            .on_hover_text("Fit to workspace")
+            .clicked()
+        {
             *compare.zoom = 1.0;
             *compare.pan = Vec2::ZERO;
         }
-        if ui.put(
-            Rect::from_min_size(pos2(x + 85.0, y), vec2(30.0, 30.0)),
-            egui::Button::new("+").corner_radius(15),
-        ).on_hover_text("Zoom in").clicked() {
+        if ui
+            .put(
+                Rect::from_min_size(pos2(x + 85.0, y), vec2(30.0, 30.0)),
+                egui::Button::new("+").corner_radius(15),
+            )
+            .on_hover_text("Zoom in")
+            .clicked()
+        {
             *compare.zoom = (*compare.zoom * 1.5).min(8.0);
         }
         p.text(
@@ -430,7 +442,14 @@ pub fn canvas(
             pos2(cards.min.x + width + gap, cards.min.y),
             vec2(width, cards.height()),
         );
-        card(&p, original_rect, "O R I G I N A L", original, *compare.zoom, *compare.pan);
+        card(
+            &p,
+            original_rect,
+            "O R I G I N A L",
+            original,
+            *compare.zoom,
+            *compare.pan,
+        );
         card(
             &p,
             print_rect,

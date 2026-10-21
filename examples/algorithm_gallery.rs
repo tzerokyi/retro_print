@@ -44,8 +44,8 @@ fn sample_image() -> RgbaImage {
         } else {
             0.0
         };
-        let value = (30.0 + 220.0 * fx + wave + silhouette + edge + checker)
-            .clamp(0.0, 255.0) as u8;
+        let value =
+            (30.0 + 220.0 * fx + wave + silhouette + edge + checker).clamp(0.0, 255.0) as u8;
         Rgba([value, value, value, 255])
     })
 }
