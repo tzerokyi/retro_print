@@ -58,6 +58,8 @@ struct RetroPrintApp {
     is_error: bool,
     wipe_view: bool,
     wipe_fraction: f32,
+    zoom: f32,
+    pan: egui::Vec2,
 }
 
 impl RetroPrintApp {
@@ -114,6 +116,8 @@ impl RetroPrintApp {
             is_error: false,
             wipe_view: false,
             wipe_fraction: 0.5,
+            zoom: 1.0,
+            pan: egui::Vec2::ZERO,
         };
 
         // Opening an image on startup also makes the entire render path
@@ -175,6 +179,8 @@ impl RetroPrintApp {
         let preview = Arc::new(make_preview(&pixels));
         self.original_texture = Some(texture_from_image(ctx, "original", &preview));
         self.print_texture = None;
+        self.zoom = 1.0;
+        self.pan = egui::Vec2::ZERO;
         self.preview_source = Some(preview);
         self.source = Some(Arc::new(pixels));
         self.source_path = path;
@@ -769,6 +775,8 @@ impl eframe::App for RetroPrintApp {
                     view::CompareView {
                         enabled: self.wipe_view,
                         fraction: &mut self.wipe_fraction,
+                        zoom: &mut self.zoom,
+                        pan: &mut self.pan,
                     },
                 );
             });
