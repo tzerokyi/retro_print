@@ -4,7 +4,7 @@ RetroPrint is a compact, offline, cross-platform Rust desktop app that turns pho
 
 ![RetroPrint showing the original image and its two-color print preview](assets/retroprint-preview.png)
 
-The editor offers nine rendering modes, from organic stipple and blue-noise dots to hard threshold, ordered Bayer screens, and error diffusion. Pixel-based modes have independent Pixel Size and Dither Strength controls. Colors, alpha-safe transparent paper, and lossless indexed-PNG and vector SVG export are supported.
+The editor offers fifteen rendering modes, from organic stipple and blue-noise dots to hard threshold, ordered Bayer screens, and error diffusion. Pixel-based modes have independent Pixel Size and Dither Strength controls. Colors, alpha-safe transparent paper, and lossless indexed-PNG and vector SVG export are supported.
 
 The UI uses the official [Lucide](https://lucide.dev/) vector icon set for buttons, controls, import affordances, and status indicators. Icons are bundled into the executable; no separate font or installation is required.
 
@@ -14,11 +14,11 @@ The [GitHub Actions workflow](.github/workflows/rust.yml) checks formatting, lin
 
 - Drag-and-drop or open a PNG, JPEG, or still WebP. Click the empty preview area to browse; drops also accept readable file handles when a direct path is unavailable.
 - Side-by-side previews or draggable Wipe Compare; synchronized wheel zoom, drag pan, and Fit reset with nearest-neighbor processed image sampling.
-- Nine texture modes: Organic, Fine Stipple, Threshold, Bayer 4×4, Bayer 8×8, Halftone Dots, Line Screen, Floyd–Steinberg, and Atkinson.
+- Fifteen texture modes: Organic, Fine Stipple, Threshold, Bayer 4×4, Bayer 8×8, Halftone Dots, Line Screen, Floyd–Steinberg, Atkinson, Jarvis–Judice–Ninke, Stucki, Sierra, Blue Noise, Clustered Dots, and Crosshatch.
 - Independent Pixel Size and Dither Strength controls for pixel-based modes; Grain Size and Grain Amount for Organic/Fine, plus Contrast, Threshold, conditional Blur and Irregularity.
 - Independently customizable ink and paper colors, with 2D spectrum pickers, `#RRGGBB` inputs, and six one-click palettes.
 - Transparent Paper option for print-ready cutouts.
-- Nine one-click print recipes, with one distinct rendering engine per recipe; deterministic seed, Reseed, and Reset.
+- Fifteen one-click print recipes, with one distinct rendering engine per recipe; deterministic seed, Reseed, and Reset.
 - Save original-resolution PNG or SVG in a background thread. PNG uses lossless indexed color when possible; SVG merges horizontal and vertical pixel runs into vector rectangles and retains transparency.
 - No cloud, telemetry, Python, Photoshop, OpenCV, or FFmpeg.
 
@@ -75,7 +75,7 @@ The standalone bundle is a direct download, not a software-store listing or an a
 ## Usage
 
 1. Drag an image into the window or click **Open Image**.
-2. Choose a print recipe or one of nine **Texture Mode** engines. Organic and Fine preserve their granular appearance; pixel-based modes create ordered, binary, or error-diffusion patterns.
+2. Choose a print recipe or one of fifteen **Texture Mode** engines. Organic and Fine preserve their granular appearance; pixel-based modes create ordered, binary, or error-diffusion patterns.
 3. In pixel-based modes, adjust **Pixel Size** to change the working grid, **Blur** to soften detail, and **Dither Strength** to change distribution where supported. In Organic/Fine, use **Grain Size** and **Grain Amount**.
 4. Tune **Contrast**, **Threshold**, and, when applicable, **Irregularity** to shape the print.
 5. Choose the **Ink** and **Paper** colors independently: click either swatch for its hue/saturation spectrum or type a six-digit HEX color (`#D45A36`); alternatively select a quick palette.
@@ -83,6 +83,8 @@ The standalone bundle is a direct download, not a software-store listing or an a
 7. Use the mouse wheel or workspace zoom controls to inspect print pixels, drag to pan when zoomed, and choose **Fit** to reset. Turn on **Wipe Compare** to compare both images with one drag divider. Click **Export PNG** or **SVG** to save.
 
 The app preserves original input alpha. Both exports use the original image dimensions; previews are intentionally reduced for responsiveness. On export, the app checks how many distinct RGBA colors are actually used. It automatically encodes up to 256 unique colors as a lossless 1-, 2-, 4-, or 8-bit indexed PNG (typically only **1 bit per pixel** for opaque two-color prints); images with more than 256 RGBA colors use full RGBA PNG. This is pixel-for-pixel reversible, without color reduction, resampling, or manual RGB conversion. File sizes vary with image dimensions and texture complexity.
+
+The [algorithm implementation plan](docs/PRINT_ALGORITHMS_ROADMAP.md) documents the reference kernels, screen constructions, acceptance checks, and remaining comparison constraints.
 
 ## Visual QA
 
@@ -93,7 +95,7 @@ cargo run --locked --example algorithm_gallery -- target/effect-gallery
 cargo run --locked --example algorithm_gallery -- target/effect-gallery /path/to/image.png
 ```
 
-The gallery generates individual files for all nine engines and all nine recipes, two contact sheets, and a manifest of their positions.
+The gallery generates individual files for all fifteen engines and all fifteen recipes, two contact sheets, per-mode ink-coverage CSV files, and a manifest of their positions.
 
 ## Tests
 

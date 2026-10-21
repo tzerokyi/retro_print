@@ -9,7 +9,7 @@ use effect::{Settings, StippleMode, render};
 use image::{Rgba, RgbaImage, imageops};
 use presets::{LOOKS, apply_look, defaults};
 
-const MODES: [(&str, StippleMode); 9] = [
+const MODES: [(&str, StippleMode); 15] = [
     ("organic", StippleMode::Organic),
     ("fine-stipple", StippleMode::Fine),
     ("threshold", StippleMode::Threshold),
@@ -19,6 +19,12 @@ const MODES: [(&str, StippleMode); 9] = [
     ("line-screen", StippleMode::LineScreen),
     ("floyd-steinberg", StippleMode::FloydSteinberg),
     ("atkinson", StippleMode::Atkinson),
+    ("jarvis-judice-ninke", StippleMode::JarvisJudiceNinke),
+    ("stucki", StippleMode::Stucki),
+    ("sierra", StippleMode::Sierra),
+    ("blue-noise", StippleMode::BlueNoise),
+    ("clustered-dots", StippleMode::ClusteredDot),
+    ("crosshatch", StippleMode::Crosshatch),
 ];
 
 fn sample_image() -> RgbaImage {
@@ -69,9 +75,11 @@ fn make_gallery(
 ) -> Result<Vec<String>, Box<dyn Error>> {
     let prefix = if presets { "recipe" } else { "engine" };
     let (w, h) = source.dimensions();
-    let mut sheet = RgbaImage::from_pixel(w * 3, h * 3, Rgba([246, 241, 228, 255]));
+    let count = if presets { LOOKS.len() } else { MODES.len() };
+    let mut sheet = RgbaImage::from_pixel(w * 3, h * count.div_ceil(3) as u32, Rgba([246, 241, 228, 255]));
     let mut labels = Vec::new();
-    for index in 0..9 {
+    let mut metrics = String::from("mode,ink_pixels,visible_pixels,ink_percent\n");
+    for index in 0..count {
         let mut settings = defaults();
         let label = if presets {
             let recipe = LOOKS[index];
@@ -90,9 +98,14 @@ fn make_gallery(
             i64::from((index / 3) as u32 * h),
         );
         result.save(folder.join(format!("{prefix}-{:02}-{label}.png", index + 1)))?;
+        let visible = result.pixels().filter(|p| p[3] != 0).count();
+        let ink = result.pixels().filter(|p| p[3] != 0 && p.0[..3] == settings.ink).count();
+        let coverage = if visible == 0 { 0.0 } else { ink as f64 * 100.0 / visible as f64 };
+        metrics.push_str(&format!("{label},{ink},{visible},{coverage:.4}\n"));
         labels.push(label);
     }
     sheet.save(folder.join(format!("{prefix}-contact-sheet.png")))?;
+    fs::write(folder.join(format!("{prefix}-metrics.csv")), metrics)?;
     Ok(labels)
 }
 

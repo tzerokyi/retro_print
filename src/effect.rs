@@ -10,8 +10,14 @@ pub enum StippleMode {
     Bayer,
     Halftone,
     LineScreen,
+    BlueNoise,
+    ClusteredDot,
+    Crosshatch,
     FloydSteinberg,
     Atkinson,
+    JarvisJudiceNinke,
+    Stucki,
+    Sierra,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -61,8 +67,14 @@ pub fn render(source: &RgbaImage, settings: &Settings) -> RgbaImage {
         | StippleMode::Bayer
         | StippleMode::Halftone
         | StippleMode::LineScreen
+        | StippleMode::BlueNoise
+        | StippleMode::ClusteredDot
+        | StippleMode::Crosshatch
         | StippleMode::FloydSteinberg
-        | StippleMode::Atkinson => render_pixel_dither(source, &s),
+        | StippleMode::Atkinson
+        | StippleMode::JarvisJudiceNinke
+        | StippleMode::Stucki
+        | StippleMode::Sierra => render_pixel_dither(source, &s),
     }
 }
 
@@ -98,7 +110,7 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
     if width == 0 || height == 0 {
         return source.clone();
     }
-    let cell = if matches!(s.mode, StippleMode::Halftone | StippleMode::LineScreen) {
+    let cell = if matches!(s.mode, StippleMode::Halftone | StippleMode::LineScreen | StippleMode::ClusteredDot | StippleMode::Crosshatch) {
         pixel_cell_size(source, s).max(4)
     } else {
         pixel_cell_size(source, s)
@@ -207,7 +219,25 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
             }
         }
         StippleMode::Halftone | StippleMode::LineScreen => {}
-        StippleMode::FloydSteinberg | StippleMode::Atkinson => {
+        StippleMode::BlueNoise => {
+            let noise = blue_noise_mask();
+            let ox = (s.seed & 127) as usize;
+            let oy = ((s.seed >> 8) & 127) as usize;
+            for y in 0..gh {
+                for x in 0..gw {
+                    let i = y * gw + x;
+                    let rank = (noise[((y + oy) & 127) * 128 + ((x + ox) & 127)] as f32 + 0.5) / 256.0;
+                    let cutoff = 0.5 + (rank - 0.5) * strength;
+                    mask[i] = active[i] && tones[i] >= cutoff;
+                }
+            }
+        }
+        StippleMode::ClusteredDot | StippleMode::Crosshatch => {}
+        StippleMode::FloydSteinberg
+        | StippleMode::Atkinson
+        | StippleMode::JarvisJudiceNinke
+        | StippleMode::Stucki
+        | StippleMode::Sierra => {
             const FLOYD: &[(isize, usize, f32)] = &[
                 (1, 0, 7.0 / 16.0),
                 (-1, 1, 3.0 / 16.0),
@@ -222,10 +252,34 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
                 (1, 1, 0.125),
                 (0, 2, 0.125),
             ];
-            let neighbors = if s.mode == StippleMode::FloydSteinberg {
-                FLOYD
-            } else {
-                ATKINSON
+
+            const JJN: &[(isize, usize, f32)] = &[
+                (1, 0, 7.0 / 48.0), (2, 0, 5.0 / 48.0),
+                (-2, 1, 3.0 / 48.0), (-1, 1, 5.0 / 48.0), (0, 1, 7.0 / 48.0),
+                (1, 1, 5.0 / 48.0), (2, 1, 3.0 / 48.0),
+                (-2, 2, 1.0 / 48.0), (-1, 2, 3.0 / 48.0), (0, 2, 5.0 / 48.0),
+                (1, 2, 3.0 / 48.0), (2, 2, 1.0 / 48.0),
+            ];
+            const STUCKI: &[(isize, usize, f32)] = &[
+                (1, 0, 8.0 / 42.0), (2, 0, 4.0 / 42.0),
+                (-2, 1, 2.0 / 42.0), (-1, 1, 4.0 / 42.0), (0, 1, 8.0 / 42.0),
+                (1, 1, 4.0 / 42.0), (2, 1, 2.0 / 42.0),
+                (-2, 2, 1.0 / 42.0), (-1, 2, 2.0 / 42.0), (0, 2, 4.0 / 42.0),
+                (1, 2, 2.0 / 42.0), (2, 2, 1.0 / 42.0),
+            ];
+            const SIERRA: &[(isize, usize, f32)] = &[
+                (1, 0, 5.0 / 32.0), (2, 0, 3.0 / 32.0),
+                (-2, 1, 2.0 / 32.0), (-1, 1, 4.0 / 32.0), (0, 1, 5.0 / 32.0),
+                (1, 1, 4.0 / 32.0), (2, 1, 2.0 / 32.0),
+                (-1, 2, 2.0 / 32.0), (0, 2, 3.0 / 32.0), (1, 2, 2.0 / 32.0),
+            ];
+            let neighbors = match s.mode {
+                StippleMode::FloydSteinberg => FLOYD,
+                StippleMode::Atkinson => ATKINSON,
+                StippleMode::JarvisJudiceNinke => JJN,
+                StippleMode::Stucki => STUCKI,
+                StippleMode::Sierra => SIERRA,
+                _ => unreachable!(),
             };
             for y in 0..gh {
                 let forward = y % 2 == 0;
@@ -272,10 +326,53 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
                 let phase = ((x as f32 + 0.45 * y as f32) / period).rem_euclid(1.0);
                 (phase - 0.5).abs() * 2.0 < tones[i].clamp(0.0, 1.0)
             }
+            StippleMode::ClusteredDot => clustered_dot_at(x, y, cell, tones[i]),
+            StippleMode::Crosshatch => crosshatch_at(x, y, cell, tones[i]),
             _ => mask[i],
         };
         print_pixel(source.get_pixel(x, y), s, ink)
     })
+}
+
+fn clustered_dot_at(x: u32, y: u32, cell: u32, coverage: f32) -> bool {
+    let period = (cell * 2) as f32;
+    let u = (x as f32 + y as f32 + 1.0) * std::f32::consts::FRAC_1_SQRT_2 / period;
+    let v = (y as f32 - x as f32) * std::f32::consts::FRAC_1_SQRT_2 / period;
+    let dx = (u - u.round()).abs();
+    let dy = (v - v.round()).abs();
+    let tone = coverage.clamp(0.0, 1.0);
+    if tone <= 0.5 {
+        dx * dx + dy * dy <= tone / std::f32::consts::PI
+    } else {
+        let hx = 0.5 - dx;
+        let hy = 0.5 - dy;
+        hx * hx + hy * hy >= (1.0 - tone) / std::f32::consts::PI
+    }
+}
+
+fn crosshatch_at(x: u32, y: u32, cell: u32, coverage: f32) -> bool {
+    let tone = coverage.clamp(0.0, 1.0);
+    if tone <= 0.0 {
+        return false;
+    }
+    if tone >= 1.0 {
+        return true;
+    }
+    let period = (cell * 2).max(4) as f32;
+    let x = x as f32 + 0.5;
+    let y = y as f32 + 0.5;
+    let axes = [(1.0, 1.0), (1.0, -1.0), (0.0, 1.0), (1.0, 0.0)];
+    for (layer, (dx, dy)) in axes.iter().enumerate() {
+        let weight = (tone * 4.0 - layer as f32).clamp(0.0, 1.0);
+        let duty = 0.30 * weight;
+        if duty > 0.0 {
+            let position = ((x * dx + y * dy) / period).rem_euclid(1.0);
+            if position < duty {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 fn render_organic(source: &RgbaImage, s: &Settings) -> RgbaImage {
@@ -682,6 +779,12 @@ mod dithering_tests {
             StippleMode::LineScreen,
             StippleMode::FloydSteinberg,
             StippleMode::Atkinson,
+            StippleMode::BlueNoise,
+            StippleMode::ClusteredDot,
+            StippleMode::Crosshatch,
+            StippleMode::JarvisJudiceNinke,
+            StippleMode::Stucki,
+            StippleMode::Sierra,
         ] {
             s.mode = mode;
             let output = render(&input, &s);
@@ -709,6 +812,12 @@ mod dithering_tests {
             StippleMode::Bayer,
             StippleMode::FloydSteinberg,
             StippleMode::Atkinson,
+            StippleMode::BlueNoise,
+            StippleMode::ClusteredDot,
+            StippleMode::Crosshatch,
+            StippleMode::JarvisJudiceNinke,
+            StippleMode::Stucki,
+            StippleMode::Sierra,
         ] {
             s.mode = mode;
             outputs.push(render(&input, &s));
@@ -755,6 +864,12 @@ mod dithering_tests {
             StippleMode::Bayer,
             StippleMode::FloydSteinberg,
             StippleMode::Atkinson,
+            StippleMode::BlueNoise,
+            StippleMode::ClusteredDot,
+            StippleMode::Crosshatch,
+            StippleMode::JarvisJudiceNinke,
+            StippleMode::Stucki,
+            StippleMode::Sierra,
         ] {
             s.mode = mode;
             let opaque = render(&input, &s);
@@ -776,7 +891,7 @@ mod dithering_tests {
         let mut s = defaults();
         s.pixel_size = 70.0;
         let mut modes = Vec::new();
-        for mode in [StippleMode::Halftone, StippleMode::LineScreen] {
+        for mode in [StippleMode::Halftone, StippleMode::LineScreen, StippleMode::ClusteredDot, StippleMode::Crosshatch] {
             s.mode = mode;
             let result = render(&input, &s);
             assert_eq!(result.dimensions(), input.dimensions());
@@ -784,7 +899,11 @@ mod dithering_tests {
             assert!(result.pixels().any(|p| p.0[..3] == s.paper));
             modes.push(result);
         }
-        assert_ne!(modes[0], modes[1]);
+        for i in 0..modes.len() {
+            for j in i + 1..modes.len() {
+                assert_ne!(modes[i], modes[j], "screen {i} and {j} match");
+            }
+        }
     }
 
     #[test]
@@ -849,5 +968,78 @@ mod dithering_tests {
         let output = render(&image, &s);
         assert_eq!(output.get_pixel(0, 0).0[..3], s.ink);
         assert_eq!(output.get_pixel(63, 0).0[..3], s.paper);
+    }
+}
+
+#[cfg(test)]
+mod advanced_dither_tests {
+    use super::*;
+    use crate::presets::defaults;
+
+    #[test]
+    fn new_modes_are_repeatable_binary_and_distinct() {
+        let source = RgbaImage::from_fn(193, 157, |x, y| {
+            let v = ((x * 13 + y * 7 + x * y / 11) % 256) as u8;
+            Rgba([v, v, v, 255])
+        });
+        let mut settings = defaults();
+        settings.pixel_size = 0.0;
+        settings.grain_amount = 100.0;
+        settings.contrast = 50.0;
+        settings.irregularity = 0.0;
+        let modes = [
+            StippleMode::JarvisJudiceNinke, StippleMode::Stucki, StippleMode::Sierra,
+            StippleMode::BlueNoise, StippleMode::ClusteredDot, StippleMode::Crosshatch,
+        ];
+        let images: Vec<_> = modes.iter().map(|&mode| {
+            settings.mode = mode;
+            let result = render(&source, &settings);
+            assert_eq!(result, render(&source, &settings));
+            assert_eq!(result.dimensions(), source.dimensions());
+            assert!(result.pixels().all(|p| p.0[..3] == settings.ink || p.0[..3] == settings.paper));
+            result
+        }).collect();
+        for i in 0..images.len() {
+            for j in (i + 1)..images.len() {
+                assert_ne!(images[i], images[j], "{:?} and {:?} match", modes[i], modes[j]);
+            }
+        }
+    }
+
+    #[test]
+    fn advanced_modes_preserve_alpha_and_cutouts() {
+        let source = RgbaImage::from_fn(71, 53, |x, y| {
+            let alpha = if x == 0 { 0 } else if y % 3 == 0 { 81 } else { 255 };
+            let shade = if x < 15 { 0 } else if x > 55 { 255 } else { 127 };
+            Rgba([shade, shade, shade, alpha])
+        });
+        let mut s = defaults();
+        for mode in [
+            StippleMode::JarvisJudiceNinke, StippleMode::Stucki, StippleMode::Sierra,
+            StippleMode::BlueNoise, StippleMode::ClusteredDot, StippleMode::Crosshatch
+        ] {
+            s.mode = mode;
+            s.pixel_size = 0.0;
+            let result = render(&source, &s);
+            for (a, b) in result.pixels().zip(source.pixels()) {
+                assert_eq!(a[3], b[3], "{mode:?}");
+            }
+            s.transparent_paper = true;
+            for (a, b) in render(&source, &s).pixels().zip(source.pixels()) {
+                assert!(a[3] == 0 || a[3] == b[3], "{mode:?}");
+            }
+            s.transparent_paper = false;
+        }
+    }
+
+    #[test]
+    fn screened_modes_follow_tone_order() {
+        for renderer in [clustered_dot_at as fn(u32,u32,u32,f32)->bool, crosshatch_at] {
+            let densities: Vec<_> = [0.08, 0.25, 0.50, 0.75, 0.95].iter().map(|&tone| {
+                (0..256).flat_map(|y| (0..256).map(move |x| (x,y)))
+                    .filter(|&(x,y)| renderer(x,y,8,tone)).count()
+            }).collect();
+            assert!(densities.windows(2).all(|v| v[0] < v[1]), "{densities:?}");
+        }
     }
 }

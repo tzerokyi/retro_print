@@ -126,20 +126,36 @@ struct SvgRun {
     color: [u8; 4],
 }
 
-fn write_rect<W: Write>(writer: &mut W, run: SvgRun) -> io::Result<()> {
+fn write_svg_path<W: Write>(writer: &mut W, color: [u8; 4], data: &str) -> io::Result<()> {
     write!(
         writer,
-        r##"<rect x="{}" y="{}" width="{}" height="{}" fill="#{:02X}{:02X}{:02X}""##,
-        run.x, run.y, run.width, run.height, run.color[0], run.color[1], run.color[2]
+        r##"<path fill="#{:02X}{:02X}{:02X}""##,
+        color[0], color[1], color[2]
     )?;
-    if run.color[3] != 255 {
-        write!(
-            writer,
-            r#" fill-opacity="{:.9}""#,
-            run.color[3] as f64 / 255.0
-        )?;
+    if color[3] != 255 {
+        write!(writer, r#" fill-opacity="{:.9}""#, color[3] as f64 / 255.0)?;
     }
-    writeln!(writer, "/>")
+    writeln!(writer, r#" d="{data}"/>"#)
+}
+
+fn append_svg_run<W: Write>(
+    writer: &mut W,
+    grouped: &mut std::collections::BTreeMap<[u8; 4], String>,
+    run: SvgRun,
+) -> io::Result<()> {
+    use std::fmt::Write as _;
+    let data = grouped.entry(run.color).or_default();
+    write!(
+        data,
+        "M{} {}h{}v{}h-{}z",
+        run.x, run.y, run.width, run.height, run.width
+    )
+    .expect("SVG path string");
+    if data.len() >= 32_768 {
+        write_svg_path(writer, run.color, data)?;
+        data.clear();
+    }
+    Ok(())
 }
 
 pub fn write_svg<W: Write>(mut writer: W, image: &RgbaImage) -> io::Result<()> {
@@ -151,7 +167,7 @@ pub fn write_svg<W: Write>(mut writer: W, image: &RgbaImage) -> io::Result<()> {
         image.width(),
         image.height()
     )?;
-
+    let mut grouped = std::collections::BTreeMap::new();
     let mut pending: Vec<SvgRun> = Vec::new();
     for y in 0..image.height() {
         let mut next = Vec::new();
@@ -167,7 +183,7 @@ pub fn write_svg<W: Write>(mut writer: W, image: &RgbaImage) -> io::Result<()> {
                 continue;
             }
             while previous.peek().is_some_and(|p| p.x < start) {
-                write_rect(&mut writer, previous.next().expect("run exists"))?;
+                append_svg_run(&mut writer, &mut grouped, previous.next().expect("run exists"))?;
             }
             if previous
                 .peek()
@@ -187,12 +203,17 @@ pub fn write_svg<W: Write>(mut writer: W, image: &RgbaImage) -> io::Result<()> {
             }
         }
         for run in previous {
-            write_rect(&mut writer, run)?;
+            append_svg_run(&mut writer, &mut grouped, run)?;
         }
         pending = next;
     }
     for run in pending {
-        write_rect(&mut writer, run)?;
+        append_svg_run(&mut writer, &mut grouped, run)?;
+    }
+    for (color, data) in grouped {
+        if !data.is_empty() {
+            write_svg_path(&mut writer, color, &data)?;
+        }
     }
     writeln!(writer, "</svg>")
 }
@@ -243,7 +264,8 @@ mod tests {
         assert!(text.contains(r#"viewBox="0 0 6 4""#));
         assert!(text.contains(r##"fill="#0A141E""##));
         assert!(text.contains(r#"fill-opacity="0.501960784""#));
-        assert!(text.contains(r#"height="4""#));
+        assert!(text.contains("v4"));
+        assert!(text.contains("<path "));
         assert!(!text.contains(r#"x="0" y="0" width="1""#));
     }
 
@@ -253,8 +275,26 @@ mod tests {
         let mut output = Vec::new();
         write_svg(&mut output, &image).unwrap();
         let text = String::from_utf8(output).unwrap();
-        assert_eq!(text.matches("<rect ").count(), 1);
-        assert!(text.contains(r#"width="10" height="8""#));
+        assert_eq!(text.matches("<path ").count(), 1);
+        assert!(text.contains("M0 0h10v8h-10z"));
+    }
+
+    #[test]
+    fn svg_batches_two_ink_colors_into_compact_paths() {
+        let img = RgbaImage::from_fn(128, 64, |x, y| {
+            if (x + y) % 2 == 0 {
+                Rgba([10, 20, 30, 255])
+            } else {
+                Rgba([200, 210, 220, 255])
+            }
+        });
+        let mut output = Vec::new();
+        write_svg(&mut output, &img).unwrap();
+        let text = String::from_utf8(output).unwrap();
+        assert!(text.matches("<path ").count() < 10);
+        assert!(text.contains("M0 0h1v1h-1z"));
+        assert!(text.contains("M1 0h1v1h-1z"));
+        assert!(!text.contains("<rect "));
     }
 
     #[test]

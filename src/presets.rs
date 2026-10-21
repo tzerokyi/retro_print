@@ -71,7 +71,7 @@ pub struct Look {
     pub palette: usize,
 }
 
-pub const LOOKS: [Look; 9] = [
+pub const LOOKS: [Look; 15] = [
     Look {
         label: "Newsprint",
         mode: StippleMode::Halftone,
@@ -179,6 +179,42 @@ pub const LOOKS: [Look; 9] = [
         threshold: 50.0,
         irregularity: 0.0,
         palette: 3,
+    },
+    Look {
+        label: "Jarvis Velvet",
+        mode: StippleMode::JarvisJudiceNinke,
+        grain_size: 18.0, pixel_size: 21.0, blur: 0.0, grain_amount: 100.0,
+        contrast: 60.0, threshold: 50.0, irregularity: 0.0, palette: 5,
+    },
+    Look {
+        label: "Stucki Etch",
+        mode: StippleMode::Stucki,
+        grain_size: 19.0, pixel_size: 27.0, blur: 0.0, grain_amount: 100.0,
+        contrast: 75.0, threshold: 48.0, irregularity: 0.0, palette: 0,
+    },
+    Look {
+        label: "Sierra Grain",
+        mode: StippleMode::Sierra,
+        grain_size: 22.0, pixel_size: 34.0, blur: 5.0, grain_amount: 100.0,
+        contrast: 62.0, threshold: 51.0, irregularity: 0.0, palette: 3,
+    },
+    Look {
+        label: "Blue Noise",
+        mode: StippleMode::BlueNoise,
+        grain_size: 8.0, pixel_size: 8.0, blur: 0.0, grain_amount: 100.0,
+        contrast: 58.0, threshold: 50.0, irregularity: 0.0, palette: 4,
+    },
+    Look {
+        label: "Clustered Dots",
+        mode: StippleMode::ClusteredDot,
+        grain_size: 15.0, pixel_size: 60.0, blur: 0.0, grain_amount: 100.0,
+        contrast: 65.0, threshold: 50.0, irregularity: 0.0, palette: 2,
+    },
+    Look {
+        label: "Crosshatch",
+        mode: StippleMode::Crosshatch,
+        grain_size: 16.0, pixel_size: 45.0, blur: 0.0, grain_amount: 100.0,
+        contrast: 76.0, threshold: 46.0, irregularity: 0.0, palette: 0,
     },
 ];
 

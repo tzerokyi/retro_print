@@ -409,6 +409,12 @@ impl RetroPrintApp {
                     (StippleMode::LineScreen, "Line Screen"),
                     (StippleMode::FloydSteinberg, "Floyd–Steinberg"),
                     (StippleMode::Atkinson, "Atkinson"),
+                    (StippleMode::JarvisJudiceNinke, "Jarvis–Judice–Ninke"),
+                    (StippleMode::Stucki, "Stucki"),
+                    (StippleMode::Sierra, "Sierra"),
+                    (StippleMode::BlueNoise, "Blue Noise"),
+                    (StippleMode::ClusteredDot, "Clustered Dots"),
+                    (StippleMode::Crosshatch, "Crosshatch"),
                 ]
                 .into_iter()
                 .enumerate()
@@ -418,7 +424,7 @@ impl RetroPrintApp {
                         .add_sized(
                             [mode_width, 32.0],
                             egui::Button::new(RichText::new(label).size(
-                                if mode == StippleMode::FloydSteinberg {
+                                if matches!(mode, StippleMode::FloydSteinberg | StippleMode::JarvisJudiceNinke) {
                                     9.5
                                 } else {
                                     11.5
@@ -447,6 +453,12 @@ impl RetroPrintApp {
             StippleMode::LineScreen => "Engraved diagonal parallel lines",
             StippleMode::FloydSteinberg => "Continuous-tone error diffusion",
             StippleMode::Atkinson => "High-contrast retro error diffusion",
+            StippleMode::JarvisJudiceNinke => "Wide, smooth twelve-neighbor diffusion",
+            StippleMode::Stucki => "Structured twelve-neighbor diffusion",
+            StippleMode::Sierra => "Even, soft ten-neighbor diffusion",
+            StippleMode::BlueNoise => "Low-clumping, precomputed blue-noise thresholds",
+            StippleMode::ClusteredDot => "Rotated clustered ink-dot screen",
+            StippleMode::Crosshatch => "Layered directional engraving strokes",
         };
         ui.label(RichText::new(mode_hint).size(10.0).color(view::SUBTLE));
         ui.add_space(12.0);
@@ -455,7 +467,7 @@ impl RetroPrintApp {
             changed |= view::slider(ui, "Pixel Size", &mut self.settings.pixel_size);
             if !matches!(
                 self.settings.mode,
-                StippleMode::Threshold | StippleMode::Halftone | StippleMode::LineScreen
+                StippleMode::Threshold | StippleMode::Halftone | StippleMode::LineScreen | StippleMode::ClusteredDot | StippleMode::Crosshatch
             ) {
                 changed |= view::slider(ui, "Dither Strength", &mut self.settings.grain_amount);
             }
@@ -474,6 +486,9 @@ impl RetroPrintApp {
                 | StippleMode::Bayer
                 | StippleMode::FloydSteinberg
                 | StippleMode::Atkinson
+                | StippleMode::JarvisJudiceNinke
+                | StippleMode::Stucki
+                | StippleMode::Sierra
         ) {
             changed |= view::slider(ui, "Irregularity", &mut self.settings.irregularity);
         }
