@@ -30,6 +30,7 @@ pub enum Icon {
     Error,
     Controls,
     Palette,
+    Swap,
 }
 
 impl Icon {
@@ -70,6 +71,10 @@ impl Icon {
             Self::Palette => (
                 "bytes://retroprint/palette.svg",
                 include_bytes!("../assets/icons/palette.svg"),
+            ),
+            Self::Swap => (
+                "bytes://retroprint/arrow-left-right.svg",
+                include_bytes!("../assets/icons/arrow-left-right.svg"),
             ),
         }
     }
