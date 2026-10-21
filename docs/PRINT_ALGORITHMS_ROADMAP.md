@@ -29,7 +29,7 @@ Implement independent rendering logic for missing classical error diffusion, blu
 - [x] Compress SVG with same-color path batching and merged rectangular runs.
 - [x] Expand comparison gallery from 3×3 to 3×5; produce per-method coverage CSV.
 - [x] Add repeatability, geometry, tonal ordering and alpha regression tests.
-- [ ] Confirm cargo formatting, Clippy and unit tests on a machine/CI with a Rust toolchain.
+- [x] Confirm cargo formatting, Clippy, 37 unit tests and 15-mode gallery in GitHub Actions ([passing run](https://github.com/tzerokyi/retro_print/actions/runs/39695505855)).
 - [ ] Compare against proprietary BDFM reference output using identical source photos; matching output requires those reference images.
 
 ## Reproduce
@@ -43,3 +43,10 @@ cargo run --locked --example algorithm_gallery -- target/effect-gallery /path/to
 
 ## Acceptance
 All fifteen methods have distinct processing logic; presets no longer reduce to nine shared engines. JJN/Stucki/Sierra weights match cited literature. Blue Noise, Clustered Dots and Crosshatch use separate threshold/screen logic. Original transparency and source dimensions remain intact. Do not describe the output as a verified proprietary BDFM clone.
+
+## Verified gallery
+- Synthetic comparison input: 480 × 320 with gradient, geometry, circles and checkerboard.
+- Engine images: 15; recipe images: 15; contact sheets: 2; coverage reports: 2.
+- Total assertions: 37 passing (0 failed).
+- Actual comparison sheets reviewed; distinct screening, diffusion, dots and hatching patterns visible.
+- This does not prove an exact reproduction of unavailable proprietary BDFM output.
