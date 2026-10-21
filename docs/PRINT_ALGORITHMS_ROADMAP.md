@@ -30,6 +30,8 @@ Implement independent rendering logic for missing classical error diffusion, blu
 - [x] Expand comparison gallery from 3×3 to 3×5; produce per-method coverage CSV.
 - [x] Add repeatability, geometry, tonal ordering and alpha regression tests.
 - [x] Confirm cargo formatting, Clippy, 37 unit tests and 15-mode gallery in GitHub Actions ([passing run](https://github.com/tzerokyi/retro_print/actions/runs/39695505855)).
+- [x] Linux portable ZIP, Windows portable ZIP and Flatpak bundle build successfully ([CI run](https://github.com/tzerokyi/retro_print/actions/runs/39695505855)).
+- [x] Linux binary opens under Xvfb (1600×1000), loads a sample PNG and reports Preview ready.
 - [ ] Compare against proprietary BDFM reference output using identical source photos; matching output requires those reference images.
 
 ## Reproduce
