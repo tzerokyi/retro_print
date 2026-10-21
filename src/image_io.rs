@@ -223,6 +223,16 @@ mod tests {
     }
 
     #[test]
+    fn svg_run_merging_collapses_solid_images() {
+        let image = RgbaImage::from_pixel(10, 8, Rgba([24, 36, 48, 255]));
+        let mut output = Vec::new();
+        write_svg(&mut output, &image).unwrap();
+        let text = String::from_utf8(output).unwrap();
+        assert_eq!(text.matches("<rect ").count(), 1);
+        assert!(text.contains(r#"width="10" height="8""#));
+    }
+
+    #[test]
     fn small_preview_is_unchanged() {
         let img = RgbaImage::from_pixel(40, 60, Rgba([10, 20, 30, 40]));
         assert_eq!(make_preview(&img), img);
