@@ -56,6 +56,8 @@ struct RetroPrintApp {
     exporting: bool,
     status: String,
     is_error: bool,
+    wipe_view: bool,
+    wipe_fraction: f32,
 }
 
 impl RetroPrintApp {
@@ -110,6 +112,8 @@ impl RetroPrintApp {
             exporting: false,
             status: "Drop an image or select Open Image".into(),
             is_error: false,
+            wipe_view: false,
+            wipe_fraction: 0.5,
         };
 
         // Opening an image on startup also makes the entire render path
@@ -289,7 +293,7 @@ impl RetroPrintApp {
         });
     }
 
-    fn header(&self, ui: &mut egui::Ui) -> (bool, bool, bool) {
+    fn header(&mut self, ui: &mut egui::Ui) -> (bool, bool, bool) {
         let mut open = false;
         let mut export = false;
         let mut export_svg = false;
@@ -319,6 +323,15 @@ impl RetroPrintApp {
                         view::icon_button(view::Icon::Open, "Open Image", view::TEXT),
                     )
                     .clicked();
+                if self.source.is_some() {
+                    if ui.add(
+                        egui::Button::new("Wipe Compare")
+                            .selected(self.wipe_view)
+                            .corner_radius(16)
+                    ).on_hover_text("Drag the divider across the image to compare").clicked() {
+                        self.wipe_view = !self.wipe_view;
+                    }
+                }
             });
         });
         (open, export, export_svg)
@@ -707,6 +720,8 @@ impl eframe::App for RetroPrintApp {
                     self.source_name.as_deref(),
                     self.preview_pending,
                     hovering_file,
+                    self.wipe_view,
+                    &mut self.wipe_fraction,
                 );
             });
 
