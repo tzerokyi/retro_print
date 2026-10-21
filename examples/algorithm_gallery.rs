@@ -117,6 +117,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     for row in recipes.chunks(3) {
         manifest.push_str(&format!("| {} |\n", row.join(" | ")));
     }
+    manifest.push_str("\n# Palette names\n\n");
+    for palette in presets::PALETTES {
+        manifest.push_str(&format!("- {}\n", palette.label));
+    }
     fs::write(folder.join("MANIFEST.md"), manifest)?;
     Ok(())
 }
