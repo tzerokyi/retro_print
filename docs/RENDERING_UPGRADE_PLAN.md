@@ -29,9 +29,10 @@ Make the modes visibly different by implementing distinct binary-pixel algorithm
 - Commit code and tests on main; report any build/CI verification limits.
 
 ## Verification
-- All changes have been committed to main, and file contents were re-read through the GitHub connector.
-- Tests were added but could not be executed in the current environment because Rust/Cargo are unavailable.
-- GitHub commit-status and workflow-run queries returned no results. Passing CI/build is not asserted.
+- GitHub Actions runs cargo fmt, strict clippy, unit tests, and visual gallery generation.
+- Nine engine modes and nine distinct presets generate 18 individual PNGs and two contact sheets.
+- Automated tests, formatting, and linting passed at commit 7ac6ae9.
+- Native interactive desktop verification remains separate from automated CI.
 
 ## Phase 2 — Printable output and editor interaction
 
@@ -43,7 +44,8 @@ Make the modes visibly different by implementing distinct binary-pixel algorithm
 - [x] Add draggable original/result wipe comparison.
 - [x] Update mode descriptions, recipes, and README.
 - [x] Add SVG merging, opacity, pattern-shape and blur tests as source files.
-- [ ] Execute Rust formatting, linting, compilation, unit tests and interactive GUI QA.
+- [x] Execute Rust formatting, linting, compilation, and unit tests in CI.
+- [ ] Complete manual interactive GUI QA on KDE and Windows.
 
 ## Remaining verification requirements
 
@@ -55,3 +57,27 @@ cargo run --release -- /path/to/sample.png
 ```
 
 Build/runtime validation is still required before calling this release fully verified.
+
+## Phase 3 — Visual QA and canvas navigation
+
+- [x] Add one-to-one engine recipes for all nine modes.
+- [x] Improve the halftone spot function to cover highlights and shadows smoothly.
+- [x] Add a monotonic halftone response regression test.
+- [x] Add synchronized canvas zoom and pan, plus Fit reset.
+- [x] Clamp the viewport image while dragging and validate the geometry in tests.
+- [x] Add a deterministic built-in synthetic test source with gradients, silhouette, sharp edges, and fine texture.
+- [x] Add the `algorithm_gallery` executable example for optional real-photo comparisons.
+- [x] Create nine engine outputs, nine styled recipe outputs, two contact sheets, and a position manifest.
+- [x] Upload generated comparison images as a GitHub Actions artifact.
+- [x] Inspect the generated synthetic comparison sheets and confirm all nine outputs are visually distinct.
+- [ ] Verify zoom/pan controls and scrollbar layout on an interactive KDE Plasma session.
+- [ ] Inspect SVG results in a vector editor and test output from a real photographic image.
+
+### Reproduce the visual comparison
+
+```bash
+cargo run --locked --example algorithm_gallery -- target/effect-gallery
+cargo run --locked --example algorithm_gallery -- target/effect-gallery /path/to/photo.png
+```
+
+The `retroprint-effect-gallery` artifact is generated in the validation job.
