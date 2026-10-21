@@ -71,7 +71,7 @@ pub struct Look {
     pub palette: usize,
 }
 
-pub const LOOKS: [Look; 7] = [
+pub const LOOKS: [Look; 9] = [
     Look {
         label: "Newsprint",
         mode: StippleMode::Halftone,
@@ -156,6 +156,30 @@ pub const LOOKS: [Look; 7] = [
         irregularity: 0.0,
         palette: 5,
     },
+    Look {
+        label: "Fine Stipple",
+        mode: StippleMode::Fine,
+        grain_size: 8.0,
+        pixel_size: 22.0,
+        blur: 0.0,
+        grain_amount: 94.0,
+        contrast: 72.0,
+        threshold: 48.0,
+        irregularity: 3.0,
+        palette: 5,
+    },
+    Look {
+        label: "Pixel Matrix",
+        mode: StippleMode::Bayer,
+        grain_size: 20.0,
+        pixel_size: 46.0,
+        blur: 0.0,
+        grain_amount: 100.0,
+        contrast: 66.0,
+        threshold: 50.0,
+        irregularity: 0.0,
+        palette: 3,
+    },
 ];
 
 pub fn apply_look(settings: &mut Settings, look: Look) {
@@ -174,6 +198,15 @@ pub fn apply_look(settings: &mut Settings, look: Look) {
 #[cfg(test)]
 mod look_tests {
     use super::*;
+
+    #[test]
+    fn each_recipe_has_a_distinct_renderer() {
+        for (i, recipe) in LOOKS.iter().enumerate() {
+            for other in LOOKS.iter().skip(i + 1) {
+                assert_ne!(recipe.mode, other.mode, "{} and {}", recipe.label, other.label);
+            }
+        }
+    }
 
     #[test]
     fn curated_looks_are_valid_and_preserve_export_options() {
