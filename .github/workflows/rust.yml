@@ -38,7 +38,7 @@ jobs:
   linux:
     name: Build Linux x86-64
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
