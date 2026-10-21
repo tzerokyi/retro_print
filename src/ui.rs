@@ -116,6 +116,10 @@ pub fn apply_theme(ctx: &egui::Context) {
         style.spacing.item_spacing = vec2(8.0, 9.0);
         style.spacing.button_padding = vec2(12.0, 8.0);
         style.spacing.slider_width = 190.0;
+        style.spacing.scroll = egui::style::ScrollStyle::solid();
+        style.spacing.scroll.bar_width = 7.0;
+        style.spacing.scroll.bar_inner_margin = 9.0;
+        style.spacing.scroll.bar_outer_margin = 3.0;
     });
 }
 
