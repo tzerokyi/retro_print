@@ -134,6 +134,7 @@ pub fn section(ui: &mut egui::Ui, text: &str, which: Icon) {
 }
 
 pub fn slider(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
+    let mut changed = false;
     ui.horizontal(|ui| {
         ui.label(RichText::new(label).size(12.5).color(TEXT));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -143,17 +144,17 @@ pub fn slider(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
                 .corner_radius(5)
                 .inner_margin(egui::Margin::symmetric(9, 4))
                 .show(ui, |ui| {
-                    ui.add(
+                    changed |= ui.add(
                         egui::DragValue::new(value)
                             .range(0.0..=100.0)
                             .speed(0.25)
                             .fixed_decimals(0)
                             .suffix("%"),
-                    ).on_hover_text("Drag or double-click to type an exact value");
+                    ).on_hover_text("Drag or double-click to type an exact value").changed();
                 });
         });
     });
-    let changed = ui
+    changed |= ui
         .add_sized(
             [ui.available_width(), 17.0],
             egui::Slider::new(value, 0.0..=100.0).show_value(false),
