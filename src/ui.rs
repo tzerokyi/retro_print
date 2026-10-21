@@ -241,6 +241,11 @@ fn card(p: &Painter, rect: Rect, title: &str, texture: Option<&TextureHandle>) {
 
 /// Paint the preview workspace into its *entire* allocated rectangle.
 /// Returns true when the user clicks the empty import surface.
+pub struct CompareView<'a> {
+    pub enabled: bool,
+    pub fraction: &'a mut f32,
+}
+
 pub fn canvas(
     ui: &mut egui::Ui,
     original: Option<&TextureHandle>,
@@ -248,8 +253,7 @@ pub fn canvas(
     filename: Option<&str>,
     pending: bool,
     hovering_file: bool,
-    wipe: bool,
-    wipe_fraction: &mut f32,
+    compare: CompareView<'_>,
 ) -> bool {
     let bounds = ui.available_rect_before_wrap();
     let response = ui.allocate_rect(bounds, Sense::click_and_drag());
@@ -310,21 +314,18 @@ pub fn canvas(
             FontId::proportional(12.0),
             SUBTLE,
         );
-    } else if wipe && printed.is_some() {
-        let original = original.expect("source texture exists");
-        let printed = printed.expect("rendered texture exists");
+    } else if let (Some(original), Some(printed), true) = (original, printed, compare.enabled) {
         p.rect_filled(cards, 10, SURFACE);
         let viewport = cards.shrink2(vec2(16.0, 30.0));
         let image_rect = fit_image(viewport, original.size_vec2());
-        if response.dragged() {
-            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
-                if image_rect.width() > 0.0 {
-                    *wipe_fraction =
-                        ((pointer.x - image_rect.left()) / image_rect.width()).clamp(0.02, 0.98);
-                }
-            }
+        if response.dragged()
+            && let Some(pointer) = ui.ctx().pointer_interact_pos()
+            && image_rect.width() > 0.0
+        {
+            *compare.fraction =
+                ((pointer.x - image_rect.left()) / image_rect.width()).clamp(0.02, 0.98);
         }
-        let divider_x = image_rect.left() + image_rect.width() * *wipe_fraction;
+        let divider_x = image_rect.left() + image_rect.width() * *compare.fraction;
         let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
         p.image(original.id(), image_rect, uv, Color32::WHITE);
         let clip = Rect::from_min_max(pos2(divider_x, image_rect.top()), image_rect.max);
@@ -393,7 +394,7 @@ pub fn canvas(
     response
         .on_hover_cursor(if is_empty {
             egui::CursorIcon::PointingHand
-        } else if wipe {
+        } else if compare.enabled {
             egui::CursorIcon::ResizeHorizontal
         } else {
             egui::CursorIcon::Default

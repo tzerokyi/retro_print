@@ -323,8 +323,8 @@ impl RetroPrintApp {
                         view::icon_button(view::Icon::Open, "Open Image", view::TEXT),
                     )
                     .clicked();
-                if self.source.is_some() {
-                    if ui
+                if self.source.is_some()
+                    && ui
                         .add(
                             egui::Button::new("Wipe Compare")
                                 .selected(self.wipe_view)
@@ -332,9 +332,8 @@ impl RetroPrintApp {
                         )
                         .on_hover_text("Drag the divider across the image to compare")
                         .clicked()
-                    {
-                        self.wipe_view = !self.wipe_view;
-                    }
+                {
+                    self.wipe_view = !self.wipe_view;
                 }
             });
         });
@@ -767,8 +766,10 @@ impl eframe::App for RetroPrintApp {
                     self.source_name.as_deref(),
                     self.preview_pending,
                     hovering_file,
-                    self.wipe_view,
-                    &mut self.wipe_fraction,
+                    view::CompareView {
+                        enabled: self.wipe_view,
+                        fraction: &mut self.wipe_fraction,
+                    },
                 );
             });
 
