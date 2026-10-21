@@ -317,9 +317,12 @@ impl RetroPrintApp {
         ui.label(RichText::new("Print Recipes").size(12.0).color(view::TEXT));
         ui.label(RichText::new("Start with a look, then fine-tune the sliders below.")
             .size(10.0).color(view::SUBTLE));
+        let recipe_columns = if ui.available_width() >= 320.0 { 3 } else { 2 };
+        let recipe_width = (ui.available_width() - (recipe_columns - 1) as f32 * 7.0)
+            / recipe_columns as f32;
         egui::Grid::new("print_recipes")
-            .num_columns(3)
-            .spacing([6.0, 7.0])
+            .num_columns(recipe_columns)
+            .spacing([7.0, 7.0])
             .show(ui, |ui| {
                 for (index, look) in LOOKS.iter().enumerate() {
                     let selected = self.settings.mode == look.mode
@@ -331,14 +334,15 @@ impl RetroPrintApp {
                         && self.settings.ink == PALETTES[look.palette].ink
                         && self.settings.paper == PALETTES[look.palette].paper;
                     if ui.add_sized(
-                        [88.0, 30.0],
-                        egui::Button::new(RichText::new(look.label).size(10.0)).selected(selected),
-                    ).on_hover_text("Apply print texture and ink/paper colors").clicked() {
+                        [recipe_width.max(60.0), 34.0],
+                        egui::Button::new(RichText::new(look.label).size(11.0))
+                            .selected(selected),
+                    ).on_hover_text("Apply texture, contrast and palette").clicked() {
                         apply_look(&mut self.settings, *look);
                         self.sync_hex_fields();
                         changed = true;
                     }
-                    if index % 3 == 2 {
+                    if (index + 1) % recipe_columns == 0 {
                         ui.end_row();
                     }
                 }
@@ -608,8 +612,8 @@ impl eframe::App for RetroPrintApp {
         // Do NOT place the inspector in a left-to-right Ui: it will lay every
         // slider on a single line, overflow the window, and hide the canvas.
         egui::Panel::top("retroprint-toolbar")
-            .exact_size(70.0)
-            .frame(egui::Frame::new().fill(view::BACKGROUND))
+            .exact_size(72.0)
+            .frame(egui::Frame::new().fill(view::PANEL).stroke(egui::Stroke::new(1.0, view::BORDER)))
             .show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(12.0);
@@ -621,15 +625,16 @@ impl eframe::App for RetroPrintApp {
             .exact_size(41.0)
             .frame(
                 egui::Frame::new()
-                    .fill(view::BACKGROUND)
+                    .fill(view::PANEL)
+                    .stroke(egui::Stroke::new(1.0, view::BORDER))
                     .inner_margin(egui::Margin::symmetric(0, 7)),
             )
             .show(ui, |ui| self.footer(ui));
 
         let sidebar_width = if ui.available_width() < 1040.0 {
-            270.0
+            280.0
         } else {
-            310.0
+            330.0
         };
         egui::Panel::left("retroprint-inspector")
             .exact_size(sidebar_width)
@@ -637,7 +642,8 @@ impl eframe::App for RetroPrintApp {
             .frame(
                 egui::Frame::new()
                     .fill(view::PANEL)
-                    .inner_margin(egui::Margin::symmetric(24, 14)),
+                    .stroke(egui::Stroke::new(1.0, view::BORDER))
+                    .inner_margin(egui::Margin::symmetric(20, 16)),
             )
             .show(ui, |ui| {
                 egui::ScrollArea::vertical()
