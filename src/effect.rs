@@ -8,6 +8,8 @@ use std::sync::OnceLock;
 pub enum StippleMode {
     Organic,
     Fine,
+    Bayer,
+    Atkinson,
 }
 
 /// Controls are normalized to 0..=100 for a consistent GUI contract.
@@ -51,10 +53,101 @@ pub fn render(source: &RgbaImage, settings: &Settings) -> RgbaImage {
     match s.mode {
         StippleMode::Organic => render_organic(source, &s),
         StippleMode::Fine => render_fine(source, &s),
+        StippleMode::Bayer => render_bayer(source, &s),
+        StippleMode::Atkinson => render_atkinson(source, &s),
     }
 }
 
 // Keep the original effect exactly intact, including its seeded pixel pattern.
+fn tone_coverage(pixel: &Rgba<u8>, s: &Settings) -> f32 {
+    let luma = (0.2126 * pixel[0] as f32
+        + 0.7152 * pixel[1] as f32
+        + 0.0722 * pixel[2] as f32) / 255.0;
+    let contrast = 0.55 + 1.85 * s.contrast / 100.0;
+    let threshold = (s.threshold - 50.0) / 100.0 * 0.74;
+    (1.0 - (0.5 + (luma - 0.5) * contrast).clamp(0.0, 1.0) + threshold)
+        .clamp(0.0, 1.0)
+}
+
+fn print_pixel(input: &Rgba<u8>, s: &Settings, printed: bool) -> Rgba<u8> {
+    if input[3] == 0 {
+        Rgba([0, 0, 0, 0])
+    } else if printed {
+        Rgba([s.ink[0], s.ink[1], s.ink[2], input[3]])
+    } else if s.transparent_paper {
+        Rgba([0, 0, 0, 0])
+    } else {
+        Rgba([s.paper[0], s.paper[1], s.paper[2], input[3]])
+    }
+}
+
+fn render_bayer(source: &RgbaImage, s: &Settings) -> RgbaImage {
+    const MATRIX: [[u8; 8]; 8] = [
+        [0,48,12,60,3,51,15,63],
+        [32,16,44,28,35,19,47,31],
+        [8,56,4,52,11,59,7,55],
+        [40,24,36,20,43,27,39,23],
+        [2,50,14,62,1,49,13,61],
+        [34,18,46,30,33,17,45,29],
+        [10,58,6,54,9,57,5,53],
+        [42,26,38,22,41,25,37,21],
+    ];
+    let min_side = source.width().min(source.height()).max(1) as f32;
+    let scale = (1.0 + (s.grain_size / 100.0 * min_side / 350.0).floor())
+        .clamp(1.0, 12.0) as u32;
+    let amount = s.grain_amount / 100.0;
+    let irregularity = s.irregularity / 100.0;
+    RgbaImage::from_fn(source.width(), source.height(), |x, y| {
+        let pixel = source.get_pixel(x, y);
+        let cx = (x / scale).wrapping_add(s.seed & 7) & 7;
+        let cy = (y / scale).wrapping_add((s.seed >> 8) & 7) & 7;
+        let rank = (MATRIX[cy as usize][cx as usize] as f32 + 0.5) / 64.0;
+        let jitter = (hash01(x as i32 / scale as i32, y as i32 / scale as i32, s.seed) - 0.5)
+            * irregularity * 0.2;
+        let cutoff = 0.5 * (1.0 - amount) + (rank + jitter).clamp(0.0, 1.0) * amount;
+        print_pixel(pixel, s, tone_coverage(pixel, s) >= cutoff)
+    })
+}
+
+fn render_atkinson(source: &RgbaImage, s: &Settings) -> RgbaImage {
+    let (width, height) = source.dimensions();
+    let w = width as usize;
+    let h = height as usize;
+    let mut tone: Vec<f32> = source.pixels().map(|p| tone_coverage(p, s)).collect();
+    let mut out = RgbaImage::new(width, height);
+    let strength = s.grain_amount / 100.0;
+    let error_spread = strength * (0.65 + 0.35 * s.irregularity / 100.0);
+    for y in 0..h {
+        let left_to_right = y % 2 == 0;
+        for step in 0..w {
+            let x = if left_to_right { step } else { w - 1 - step };
+            let idx = y * w + x;
+            let input = source.get_pixel(x as u32, y as u32);
+            if input[3] == 0 {
+                out.put_pixel(x as u32, y as u32, Rgba([0, 0, 0, 0]));
+                continue;
+            }
+            let jitter = (hash01(x as i32, y as i32, s.seed) - 0.5)
+                * (1.0 - strength) * 0.08;
+            let value = (tone[idx] + jitter).clamp(0.0, 1.0);
+            let printed = value >= 0.5;
+            out.put_pixel(x as u32, y as u32, print_pixel(input, s, printed));
+            let error = (value - if printed { 1.0 } else { 0.0 }) * error_spread / 8.0;
+            let direction: isize = if left_to_right { 1 } else { -1 };
+            for (dx, dy) in [(1,0),(2,0),(-1,1),(0,1),(1,1),(0,2)] {
+                let xx = x as isize + dx * direction;
+                let yy = y + dy as usize;
+                if xx >= 0 && (xx as usize) < w && yy < h
+                    && source.get_pixel(xx as u32, yy as u32)[3] != 0
+                {
+                    tone[yy * w + xx as usize] += error;
+                }
+            }
+        }
+    }
+    out
+}
+
 fn render_organic(source: &RgbaImage, s: &Settings) -> RgbaImage {
     let (width, height) = source.dimensions();
     let base = width.min(height).max(1) as f32 / 1000.0;
@@ -441,5 +534,34 @@ mod tests {
             fine_pairs < organic_pairs,
             "fine={fine_pairs}, organic={organic_pairs}"
         );
+    }
+}
+
+#[cfg(test)]
+mod dithering_tests {
+    use super::*;
+    use crate::presets::defaults;
+
+    #[test]
+    fn renderers_are_distinct_and_repeatable() {
+        let source = RgbaImage::from_fn(96, 96, |x, y| {
+            let v = ((x * 2 + y) % 256) as u8;
+            Rgba([v, v, v, 255])
+        });
+        let mut s = defaults();
+        let mut outputs = Vec::new();
+        for mode in [StippleMode::Organic, StippleMode::Fine, StippleMode::Bayer, StippleMode::Atkinson] {
+            s.mode = mode;
+            let output = render(&source, &s);
+            assert_eq!(output, render(&source, &s));
+            assert_eq!(output.dimensions(), source.dimensions());
+            assert!(output.pixels().all(|p| p.0[..3] == s.ink || p.0[..3] == s.paper));
+            outputs.push(output);
+        }
+        for i in 0..outputs.len() {
+            for j in i + 1..outputs.len() {
+                assert_ne!(outputs[i], outputs[j]);
+            }
+        }
     }
 }
