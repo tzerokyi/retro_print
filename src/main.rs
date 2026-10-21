@@ -324,11 +324,15 @@ impl RetroPrintApp {
                     )
                     .clicked();
                 if self.source.is_some() {
-                    if ui.add(
-                        egui::Button::new("Wipe Compare")
-                            .selected(self.wipe_view)
-                            .corner_radius(16)
-                    ).on_hover_text("Drag the divider across the image to compare").clicked() {
+                    if ui
+                        .add(
+                            egui::Button::new("Wipe Compare")
+                                .selected(self.wipe_view)
+                                .corner_radius(16),
+                        )
+                        .on_hover_text("Drag the divider across the image to compare")
+                        .clicked()
+                    {
                         self.wipe_view = !self.wipe_view;
                     }
                 }
@@ -342,11 +346,14 @@ impl RetroPrintApp {
         ui.add_space(10.0);
         view::section(ui, "P R I N T   C O N T R O L S", view::Icon::Controls);
         ui.label(RichText::new("Print Recipes").size(12.0).color(view::TEXT));
-        ui.label(RichText::new("Start with a look, then fine-tune the sliders below.")
-            .size(10.0).color(view::SUBTLE));
+        ui.label(
+            RichText::new("Start with a look, then fine-tune the sliders below.")
+                .size(10.0)
+                .color(view::SUBTLE),
+        );
         let recipe_columns = if ui.available_width() >= 320.0 { 3 } else { 2 };
-        let recipe_width = (ui.available_width() - (recipe_columns - 1) as f32 * 7.0)
-            / recipe_columns as f32;
+        let recipe_width =
+            (ui.available_width() - (recipe_columns - 1) as f32 * 7.0) / recipe_columns as f32;
         egui::Grid::new("print_recipes")
             .num_columns(recipe_columns)
             .spacing([7.0, 7.0])
@@ -362,11 +369,15 @@ impl RetroPrintApp {
                         && self.settings.irregularity == look.irregularity
                         && self.settings.ink == PALETTES[look.palette].ink
                         && self.settings.paper == PALETTES[look.palette].paper;
-                    if ui.add_sized(
-                        [recipe_width.max(60.0), 34.0],
-                        egui::Button::new(RichText::new(look.label).size(11.0))
-                            .selected(selected),
-                    ).on_hover_text("Apply texture, contrast and palette").clicked() {
+                    if ui
+                        .add_sized(
+                            [recipe_width.max(60.0), 34.0],
+                            egui::Button::new(RichText::new(look.label).size(11.0))
+                                .selected(selected),
+                        )
+                        .on_hover_text("Apply texture, contrast and palette")
+                        .clicked()
+                    {
                         apply_look(&mut self.settings, *look);
                         self.sync_hex_fields();
                         changed = true;
@@ -379,35 +390,48 @@ impl RetroPrintApp {
         ui.add_space(14.0);
         ui.label(RichText::new("Texture Mode").size(12.0).color(view::TEXT));
         let mode_width = (ui.available_width() - 7.0) * 0.5;
-        egui::Grid::new("texture_modes").num_columns(2).spacing([7.0, 7.0]).show(ui, |ui| {
-            for (index, (mode, label)) in [
-                (StippleMode::Organic, "Organic"),
-                (StippleMode::Fine, "Fine Stipple"),
-                (StippleMode::Threshold, "Threshold"),
-                (StippleMode::Bayer4, "Bayer 4×4"),
-                (StippleMode::Bayer, "Bayer 8×8"),
-                (StippleMode::Halftone, "Halftone Dots"),
-                (StippleMode::LineScreen, "Line Screen"),
-                (StippleMode::FloydSteinberg, "Floyd–Steinberg"),
-                (StippleMode::Atkinson, "Atkinson"),
-            ].into_iter().enumerate() {
-                let selected = self.settings.mode == mode;
-                if ui
-                    .add_sized(
-                        [mode_width, 32.0],
-                        egui::Button::new(RichText::new(label).size(if mode == StippleMode::FloydSteinberg { 9.5 } else { 11.5 })).selected(selected),
-                    )
-                    .clicked()
-                    && !selected
+        egui::Grid::new("texture_modes")
+            .num_columns(2)
+            .spacing([7.0, 7.0])
+            .show(ui, |ui| {
+                for (index, (mode, label)) in [
+                    (StippleMode::Organic, "Organic"),
+                    (StippleMode::Fine, "Fine Stipple"),
+                    (StippleMode::Threshold, "Threshold"),
+                    (StippleMode::Bayer4, "Bayer 4×4"),
+                    (StippleMode::Bayer, "Bayer 8×8"),
+                    (StippleMode::Halftone, "Halftone Dots"),
+                    (StippleMode::LineScreen, "Line Screen"),
+                    (StippleMode::FloydSteinberg, "Floyd–Steinberg"),
+                    (StippleMode::Atkinson, "Atkinson"),
+                ]
+                .into_iter()
+                .enumerate()
                 {
-                    self.settings.mode = mode;
-                    changed = true;
+                    let selected = self.settings.mode == mode;
+                    if ui
+                        .add_sized(
+                            [mode_width, 32.0],
+                            egui::Button::new(RichText::new(label).size(
+                                if mode == StippleMode::FloydSteinberg {
+                                    9.5
+                                } else {
+                                    11.5
+                                },
+                            ))
+                            .selected(selected),
+                        )
+                        .clicked()
+                        && !selected
+                    {
+                        self.settings.mode = mode;
+                        changed = true;
+                    }
+                    if index % 2 == 1 {
+                        ui.end_row();
+                    }
                 }
-                if index % 2 == 1 {
-                    ui.end_row();
-                }
-            }
-        });
+            });
         let mode_hint = match self.settings.mode {
             StippleMode::Organic => "Soft, clustered analog grain",
             StippleMode::Fine => "Fine blue-noise dots and sharp details",
@@ -424,7 +448,10 @@ impl RetroPrintApp {
         let pixel_mode = !matches!(self.settings.mode, StippleMode::Organic | StippleMode::Fine);
         if pixel_mode {
             changed |= view::slider(ui, "Pixel Size", &mut self.settings.pixel_size);
-            if !matches!(self.settings.mode, StippleMode::Threshold | StippleMode::Halftone | StippleMode::LineScreen) {
+            if !matches!(
+                self.settings.mode,
+                StippleMode::Threshold | StippleMode::Halftone | StippleMode::LineScreen
+            ) {
                 changed |= view::slider(ui, "Dither Strength", &mut self.settings.grain_amount);
             }
             changed |= view::slider(ui, "Blur", &mut self.settings.blur);
@@ -434,7 +461,15 @@ impl RetroPrintApp {
         }
         changed |= view::slider(ui, "Contrast", &mut self.settings.contrast);
         changed |= view::slider(ui, "Threshold", &mut self.settings.threshold);
-        if matches!(self.settings.mode, StippleMode::Organic | StippleMode::Fine | StippleMode::Bayer4 | StippleMode::Bayer | StippleMode::FloydSteinberg | StippleMode::Atkinson) {
+        if matches!(
+            self.settings.mode,
+            StippleMode::Organic
+                | StippleMode::Fine
+                | StippleMode::Bayer4
+                | StippleMode::Bayer
+                | StippleMode::FloydSteinberg
+                | StippleMode::Atkinson
+        ) {
             changed |= view::slider(ui, "Irregularity", &mut self.settings.irregularity);
         }
 
@@ -491,7 +526,8 @@ impl RetroPrintApp {
             }
         });
         ui.add_space(10.0);
-        if ui.button("⇄  Swap Ink / Paper")
+        if ui
+            .button("⇄  Swap Ink / Paper")
             .on_hover_text("Reverse foreground and background colors without changing the texture")
             .clicked()
         {
@@ -668,7 +704,11 @@ impl eframe::App for RetroPrintApp {
         let mut export_svg = false;
         egui::Panel::top("retroprint-toolbar")
             .exact_size(72.0)
-            .frame(egui::Frame::new().fill(view::PANEL).stroke(egui::Stroke::new(1.0, view::BORDER)))
+            .frame(
+                egui::Frame::new()
+                    .fill(view::PANEL)
+                    .stroke(egui::Stroke::new(1.0, view::BORDER)),
+            )
             .show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(12.0);
@@ -698,13 +738,20 @@ impl eframe::App for RetroPrintApp {
                 egui::Frame::new()
                     .fill(view::PANEL)
                     .stroke(egui::Stroke::new(1.0, view::BORDER))
-                    .inner_margin(egui::Margin { left: 20, right: 5, top: 16, bottom: 16 }),
+                    .inner_margin(egui::Margin {
+                        left: 20,
+                        right: 5,
+                        top: 16,
+                        bottom: 16,
+                    }),
             )
             .show(ui, |ui| {
                 egui::ScrollArea::vertical()
                     .id_salt("retroprint-inspector-scroll")
                     .auto_shrink([false, false])
-                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
+                    .scroll_bar_visibility(
+                        egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
+                    )
                     .show(ui, |ui| {
                         changed = self.inspector(ui);
                     });
@@ -748,7 +795,15 @@ fn texture_from_image(ctx: &egui::Context, name: &str, pixels: &RgbaImage) -> Te
         [pixels.width() as usize, pixels.height() as usize],
         pixels.as_raw(),
     );
-    ctx.load_texture(name, rgba, if name == "print" { egui::TextureOptions::NEAREST } else { egui::TextureOptions::LINEAR })
+    ctx.load_texture(
+        name,
+        rgba,
+        if name == "print" {
+            egui::TextureOptions::NEAREST
+        } else {
+            egui::TextureOptions::LINEAR
+        },
+    )
 }
 
 fn file_label(path: &Path) -> String {

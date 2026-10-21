@@ -148,13 +148,16 @@ pub fn slider(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
                 .corner_radius(5)
                 .inner_margin(egui::Margin::symmetric(9, 4))
                 .show(ui, |ui| {
-                    changed |= ui.add(
-                        egui::DragValue::new(value)
-                            .range(0.0..=100.0)
-                            .speed(0.25)
-                            .fixed_decimals(0)
-                            .suffix("%"),
-                    ).on_hover_text("Drag or double-click to type an exact value").changed();
+                    changed |= ui
+                        .add(
+                            egui::DragValue::new(value)
+                                .range(0.0..=100.0)
+                                .speed(0.25)
+                                .fixed_decimals(0)
+                                .suffix("%"),
+                        )
+                        .on_hover_text("Drag or double-click to type an exact value")
+                        .changed();
                 });
         });
     });
@@ -316,27 +319,30 @@ pub fn canvas(
         if response.dragged() {
             if let Some(pointer) = ui.ctx().pointer_interact_pos() {
                 if image_rect.width() > 0.0 {
-                    *wipe_fraction = ((pointer.x - image_rect.left()) / image_rect.width())
-                        .clamp(0.02, 0.98);
+                    *wipe_fraction =
+                        ((pointer.x - image_rect.left()) / image_rect.width()).clamp(0.02, 0.98);
                 }
             }
         }
         let divider_x = image_rect.left() + image_rect.width() * *wipe_fraction;
         let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
         p.image(original.id(), image_rect, uv, Color32::WHITE);
-        let clip = Rect::from_min_max(
-            pos2(divider_x, image_rect.top()),
-            image_rect.max,
-        );
-        p.with_clip_rect(clip).image(printed.id(), image_rect, uv, Color32::WHITE);
+        let clip = Rect::from_min_max(pos2(divider_x, image_rect.top()), image_rect.max);
+        p.with_clip_rect(clip)
+            .image(printed.id(), image_rect, uv, Color32::WHITE);
         p.line_segment(
-            [pos2(divider_x, image_rect.top()), pos2(divider_x, image_rect.bottom())],
+            [
+                pos2(divider_x, image_rect.top()),
+                pos2(divider_x, image_rect.bottom()),
+            ],
             Stroke::new(2.0, ACCENT),
         );
         p.circle_filled(pos2(divider_x, image_rect.center().y), 11.0, ACCENT);
         p.line_segment(
-            [pos2(divider_x - 4.0, image_rect.center().y),
-             pos2(divider_x + 4.0, image_rect.center().y)],
+            [
+                pos2(divider_x - 4.0, image_rect.center().y),
+                pos2(divider_x + 4.0, image_rect.center().y),
+            ],
             Stroke::new(2.0, BACKGROUND),
         );
         p.text(

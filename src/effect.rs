@@ -56,20 +56,22 @@ pub fn render(source: &RgbaImage, settings: &Settings) -> RgbaImage {
     match s.mode {
         StippleMode::Organic => render_organic(source, &s),
         StippleMode::Fine => render_fine(source, &s),
-        StippleMode::Threshold | StippleMode::Bayer4 | StippleMode::Bayer
-        | StippleMode::Halftone | StippleMode::LineScreen
-        | StippleMode::FloydSteinberg | StippleMode::Atkinson => render_pixel_dither(source, &s),
+        StippleMode::Threshold
+        | StippleMode::Bayer4
+        | StippleMode::Bayer
+        | StippleMode::Halftone
+        | StippleMode::LineScreen
+        | StippleMode::FloydSteinberg
+        | StippleMode::Atkinson => render_pixel_dither(source, &s),
     }
 }
 
 fn tone_coverage(pixel: &Rgba<u8>, s: &Settings) -> f32 {
-    let luma = (0.2126 * pixel[0] as f32
-        + 0.7152 * pixel[1] as f32
-        + 0.0722 * pixel[2] as f32) / 255.0;
+    let luma =
+        (0.2126 * pixel[0] as f32 + 0.7152 * pixel[1] as f32 + 0.0722 * pixel[2] as f32) / 255.0;
     let contrast = 0.55 + 1.85 * s.contrast / 100.0;
     let threshold = (s.threshold - 50.0) / 100.0 * 0.74;
-    (1.0 - (0.5 + (luma - 0.5) * contrast).clamp(0.0, 1.0) + threshold)
-        .clamp(0.0, 1.0)
+    (1.0 - (0.5 + (luma - 0.5) * contrast).clamp(0.0, 1.0) + threshold).clamp(0.0, 1.0)
 }
 
 fn print_pixel(input: &Rgba<u8>, s: &Settings, printed: bool) -> Rgba<u8> {
@@ -84,16 +86,18 @@ fn print_pixel(input: &Rgba<u8>, s: &Settings, printed: bool) -> Rgba<u8> {
     }
 }
 
-
 fn pixel_cell_size(image: &RgbaImage, s: &Settings) -> u32 {
     let side = image.width().min(image.height()).max(1) as f32;
     (1.0 + (s.pixel_size / 100.0).powf(1.35) * 36.0 * side / 900.0)
-        .round().clamp(1.0, 128.0) as u32
+        .round()
+        .clamp(1.0, 128.0) as u32
 }
 
 fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
     let (width, height) = source.dimensions();
-    if width == 0 || height == 0 { return source.clone(); }
+    if width == 0 || height == 0 {
+        return source.clone();
+    }
     let cell = if matches!(s.mode, StippleMode::Halftone | StippleMode::LineScreen) {
         pixel_cell_size(source, s).max(4)
     } else {
@@ -133,7 +137,9 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
         for y in 0..gh {
             for x in 0..gw {
                 let index = y * gw + x;
-                if !active[index] { continue; }
+                if !active[index] {
+                    continue;
+                }
                 let mut sum = 0.0;
                 let mut count = 0.0;
                 for dy in -radius..=radius {
@@ -161,28 +167,38 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
     let random = s.irregularity / 100.0;
     match s.mode {
         StippleMode::Threshold => {
-            for i in 0..mask.len() { mask[i] = active[i] && tones[i] >= 0.5; }
+            for i in 0..mask.len() {
+                mask[i] = active[i] && tones[i] >= 0.5;
+            }
         }
         StippleMode::Bayer4 | StippleMode::Bayer => {
-            const B4: [[u8; 4]; 4] = [
-                [0,8,2,10], [12,4,14,6], [3,11,1,9], [15,7,13,5]
-            ];
+            const B4: [[u8; 4]; 4] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
             const B8: [[u8; 8]; 8] = [
-                [0,48,12,60,3,51,15,63], [32,16,44,28,35,19,47,31],
-                [8,56,4,52,11,59,7,55], [40,24,36,20,43,27,39,23],
-                [2,50,14,62,1,49,13,61], [34,18,46,30,33,17,45,29],
-                [10,58,6,54,9,57,5,53], [42,26,38,22,41,25,37,21]
+                [0, 48, 12, 60, 3, 51, 15, 63],
+                [32, 16, 44, 28, 35, 19, 47, 31],
+                [8, 56, 4, 52, 11, 59, 7, 55],
+                [40, 24, 36, 20, 43, 27, 39, 23],
+                [2, 50, 14, 62, 1, 49, 13, 61],
+                [34, 18, 46, 30, 33, 17, 45, 29],
+                [10, 58, 6, 54, 9, 57, 5, 53],
+                [42, 26, 38, 22, 41, 25, 37, 21],
             ];
             for y in 0..gh {
                 for x in 0..gw {
                     let i = y * gw + x;
-                    if !active[i] { continue; }
+                    if !active[i] {
+                        continue;
+                    }
                     let rank = if s.mode == StippleMode::Bayer4 {
-                        (B4[(y + ((s.seed >> 8) as usize & 3)) & 3]
-                            [(x + (s.seed as usize & 3)) & 3] as f32 + 0.5) / 16.0
+                        (B4[(y + ((s.seed >> 8) as usize & 3)) & 3][(x + (s.seed as usize & 3)) & 3]
+                            as f32
+                            + 0.5)
+                            / 16.0
                     } else {
-                        (B8[(y + ((s.seed >> 8) as usize & 7)) & 7]
-                            [(x + (s.seed as usize & 7)) & 7] as f32 + 0.5) / 64.0
+                        (B8[(y + ((s.seed >> 8) as usize & 7)) & 7][(x + (s.seed as usize & 7)) & 7]
+                            as f32
+                            + 0.5)
+                            / 64.0
                     };
                     let jitter = (hash01(x as i32, y as i32, s.seed) - 0.5) * random * 0.12;
                     let cutoff = 0.5 + (rank - 0.5) * strength + jitter;
@@ -193,20 +209,33 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
         StippleMode::Halftone | StippleMode::LineScreen => {}
         StippleMode::FloydSteinberg | StippleMode::Atkinson => {
             const FLOYD: &[(isize, usize, f32)] = &[
-                (1,0,7.0/16.0),(-1,1,3.0/16.0),(0,1,5.0/16.0),(1,1,1.0/16.0)
+                (1, 0, 7.0 / 16.0),
+                (-1, 1, 3.0 / 16.0),
+                (0, 1, 5.0 / 16.0),
+                (1, 1, 1.0 / 16.0),
             ];
             const ATKINSON: &[(isize, usize, f32)] = &[
-                (1,0,0.125),(2,0,0.125),(-1,1,0.125),
-                (0,1,0.125),(1,1,0.125),(0,2,0.125)
+                (1, 0, 0.125),
+                (2, 0, 0.125),
+                (-1, 1, 0.125),
+                (0, 1, 0.125),
+                (1, 1, 0.125),
+                (0, 2, 0.125),
             ];
-            let neighbors = if s.mode == StippleMode::FloydSteinberg { FLOYD } else { ATKINSON };
+            let neighbors = if s.mode == StippleMode::FloydSteinberg {
+                FLOYD
+            } else {
+                ATKINSON
+            };
             for y in 0..gh {
                 let forward = y % 2 == 0;
                 let direction: isize = if forward { 1 } else { -1 };
                 for step in 0..gw {
                     let x = if forward { step } else { gw - 1 - step };
                     let i = y * gw + x;
-                    if !active[i] { continue; }
+                    if !active[i] {
+                        continue;
+                    }
                     let jitter = (hash01(x as i32, y as i32, s.seed) - 0.5) * random * 0.12;
                     let value = (tones[i] + jitter).clamp(0.0, 1.0);
                     mask[i] = value >= 0.5;
@@ -216,7 +245,9 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
                         let ny = y + dy;
                         if nx >= 0 && (nx as usize) < gw && ny < gh {
                             let dest = ny * gw + nx as usize;
-                            if active[dest] { tones[dest] += error * weight; }
+                            if active[dest] {
+                                tones[dest] += error * weight;
+                            }
                         }
                     }
                 }
@@ -233,8 +264,7 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
                 let py = (y % cell) as f32 + 0.5;
                 let nx = px / cell as f32 - 0.5;
                 let ny = py / cell as f32 - 0.5;
-                nx * nx + ny * ny <= (coverage / std::f32::consts::PI).min(0.5)
-                    || coverage >= 0.999
+                nx * nx + ny * ny <= (coverage / std::f32::consts::PI).min(0.5) || coverage >= 0.999
             }
             StippleMode::LineScreen => {
                 let period = (cell * 3).max(3) as f32;
@@ -656,9 +686,11 @@ mod dithering_tests {
             let output = render(&input, &s);
             assert_eq!(output, render(&input, &s));
             assert_eq!(output.dimensions(), input.dimensions());
-            assert!(output
-                .pixels()
-                .all(|p| p.0[..3] == s.ink || p.0[..3] == s.paper));
+            assert!(
+                output
+                    .pixels()
+                    .all(|p| p.0[..3] == s.ink || p.0[..3] == s.paper)
+            );
         }
     }
 
@@ -705,7 +737,13 @@ mod dithering_tests {
     #[test]
     fn pixel_mode_alpha_and_cutout_follow_original() {
         let input = RgbaImage::from_fn(24, 20, |x, y| {
-            let alpha = if x == 0 { 0 } else if y % 2 == 0 { 64 } else { 255 };
+            let alpha = if x == 0 {
+                0
+            } else if y % 2 == 0 {
+                64
+            } else {
+                255
+            };
             Rgba([128, 128, 128, alpha])
         });
         let mut s = defaults();

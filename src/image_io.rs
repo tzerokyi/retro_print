@@ -1,6 +1,13 @@
 //! File I/O and source-preview preparation.
 
-use std::{collections::HashMap, error::Error, fmt, fs::File, io::{self, BufWriter, Write}, path::Path};
+use std::{
+    collections::HashMap,
+    error::Error,
+    fmt,
+    fs::File,
+    io::{self, BufWriter, Write},
+    path::Path,
+};
 
 use image::{ImageFormat, RgbaImage, imageops::FilterType};
 use png::{BitDepth, ColorType, Compression, Encoder};
@@ -123,11 +130,14 @@ fn write_rect<W: Write>(writer: &mut W, run: SvgRun) -> io::Result<()> {
     write!(
         writer,
         r##"<rect x="{}" y="{}" width="{}" height="{}" fill="#{:02X}{:02X}{:02X}""##,
-        run.x, run.y, run.width, run.height,
-        run.color[0], run.color[1], run.color[2]
+        run.x, run.y, run.width, run.height, run.color[0], run.color[1], run.color[2]
     )?;
     if run.color[3] != 255 {
-        write!(writer, r#" fill-opacity="{:.9}""#, run.color[3] as f64 / 255.0)?;
+        write!(
+            writer,
+            r#" fill-opacity="{:.9}""#,
+            run.color[3] as f64 / 255.0
+        )?;
     }
     writeln!(writer, "/>")
 }
@@ -136,7 +146,10 @@ pub fn write_svg<W: Write>(mut writer: W, image: &RgbaImage) -> io::Result<()> {
     writeln!(
         writer,
         r#"<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}" viewBox="0 0 {} {}" shape-rendering="crispEdges">"#,
-        image.width(), image.height(), image.width(), image.height()
+        image.width(),
+        image.height(),
+        image.width(),
+        image.height()
     )?;
 
     let mut pending: Vec<SvgRun> = Vec::new();
@@ -150,11 +163,16 @@ pub fn write_svg<W: Write>(mut writer: W, image: &RgbaImage) -> io::Result<()> {
             while x < image.width() && image.get_pixel(x, y).0 == color {
                 x += 1;
             }
-            if color[3] == 0 { continue; }
+            if color[3] == 0 {
+                continue;
+            }
             while previous.peek().is_some_and(|p| p.x < start) {
                 write_rect(&mut writer, previous.next().expect("run exists"))?;
             }
-            if previous.peek().is_some_and(|p| p.x == start && p.width == x - start && p.color == color) {
+            if previous
+                .peek()
+                .is_some_and(|p| p.x == start && p.width == x - start && p.color == color)
+            {
                 let mut run = previous.next().expect("matching run exists");
                 run.height += 1;
                 next.push(run);
@@ -173,7 +191,9 @@ pub fn write_svg<W: Write>(mut writer: W, image: &RgbaImage) -> io::Result<()> {
         }
         pending = next;
     }
-    for run in pending { write_rect(&mut writer, run)?; }
+    for run in pending {
+        write_rect(&mut writer, run)?;
+    }
     writeln!(writer, "</svg>")
 }
 
@@ -207,10 +227,15 @@ mod tests {
     #[test]
     fn svg_merges_solid_rectangles_and_preserves_alpha() {
         let image = RgbaImage::from_fn(6, 4, |x, y| {
-            if x == 0 { Rgba([0, 0, 0, 0]) }
-            else if x < 4 { Rgba([10, 20, 30, 255]) }
-            else if y < 2 { Rgba([200, 100, 50, 128]) }
-            else { Rgba([10, 20, 30, 255]) }
+            if x == 0 {
+                Rgba([0, 0, 0, 0])
+            } else if x < 4 {
+                Rgba([10, 20, 30, 255])
+            } else if y < 2 {
+                Rgba([200, 100, 50, 128])
+            } else {
+                Rgba([10, 20, 30, 255])
+            }
         });
         let mut output = Vec::new();
         write_svg(&mut output, &image).unwrap();
