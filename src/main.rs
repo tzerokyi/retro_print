@@ -326,6 +326,7 @@ impl RetroPrintApp {
             .show(ui, |ui| {
                 for (index, look) in LOOKS.iter().enumerate() {
                     let selected = self.settings.mode == look.mode
+                        && self.settings.blur == look.blur
                         && self.settings.pixel_size == look.pixel_size
                         && self.settings.grain_size == look.grain_size
                         && self.settings.grain_amount == look.grain_amount
@@ -358,6 +359,8 @@ impl RetroPrintApp {
                 (StippleMode::Threshold, "Threshold"),
                 (StippleMode::Bayer4, "Bayer 4×4"),
                 (StippleMode::Bayer, "Bayer 8×8"),
+                (StippleMode::Halftone, "Halftone Dots"),
+                (StippleMode::LineScreen, "Line Screen"),
                 (StippleMode::FloydSteinberg, "Floyd–Steinberg"),
                 (StippleMode::Atkinson, "Atkinson"),
             ].into_iter().enumerate() {
@@ -384,6 +387,8 @@ impl RetroPrintApp {
             StippleMode::Threshold => "Hard black-and-white shapes",
             StippleMode::Bayer4 => "Tight 4×4 ordered pattern",
             StippleMode::Bayer => "Detailed 8×8 ordered pattern",
+            StippleMode::Halftone => "Round ink dots grow with shadow density",
+            StippleMode::LineScreen => "Engraved diagonal parallel lines",
             StippleMode::FloydSteinberg => "Continuous-tone error diffusion",
             StippleMode::Atkinson => "High-contrast retro error diffusion",
         };
@@ -392,16 +397,17 @@ impl RetroPrintApp {
         let pixel_mode = !matches!(self.settings.mode, StippleMode::Organic | StippleMode::Fine);
         if pixel_mode {
             changed |= view::slider(ui, "Pixel Size", &mut self.settings.pixel_size);
-            if self.settings.mode != StippleMode::Threshold {
+            if !matches!(self.settings.mode, StippleMode::Threshold | StippleMode::Halftone | StippleMode::LineScreen) {
                 changed |= view::slider(ui, "Dither Strength", &mut self.settings.grain_amount);
             }
+            changed |= view::slider(ui, "Blur", &mut self.settings.blur);
         } else {
             changed |= view::slider(ui, "Grain Size", &mut self.settings.grain_size);
             changed |= view::slider(ui, "Grain Amount", &mut self.settings.grain_amount);
         }
         changed |= view::slider(ui, "Contrast", &mut self.settings.contrast);
         changed |= view::slider(ui, "Threshold", &mut self.settings.threshold);
-        if self.settings.mode != StippleMode::Threshold {
+        if matches!(self.settings.mode, StippleMode::Organic | StippleMode::Fine | StippleMode::Bayer4 | StippleMode::Bayer | StippleMode::FloydSteinberg | StippleMode::Atkinson) {
             changed |= view::slider(ui, "Irregularity", &mut self.settings.irregularity);
         }
 
