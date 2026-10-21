@@ -554,7 +554,11 @@ impl RetroPrintApp {
         });
         ui.add_space(10.0);
         if ui
-            .button("⇄  Swap Ink / Paper")
+            .add(view::icon_button(
+                view::Icon::Swap,
+                "Swap Ink / Paper",
+                view::TEXT,
+            ))
             .on_hover_text("Reverse foreground and background colors without changing the texture")
             .clicked()
         {
