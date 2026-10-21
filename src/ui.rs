@@ -245,9 +245,11 @@ pub fn canvas(
     filename: Option<&str>,
     pending: bool,
     hovering_file: bool,
+    wipe: bool,
+    wipe_fraction: &mut f32,
 ) -> bool {
     let bounds = ui.available_rect_before_wrap();
-    let response = ui.allocate_rect(bounds, Sense::click());
+    let response = ui.allocate_rect(bounds, Sense::click_and_drag());
     let p = ui.painter_at(bounds);
     p.rect_filled(bounds, 0, BACKGROUND);
 
@@ -305,6 +307,52 @@ pub fn canvas(
             FontId::proportional(12.0),
             SUBTLE,
         );
+    } else if wipe && printed.is_some() {
+        let original = original.expect("source texture exists");
+        let printed = printed.expect("rendered texture exists");
+        p.rect_filled(cards, 10, SURFACE);
+        let viewport = cards.shrink2(vec2(16.0, 30.0));
+        let image_rect = fit_image(viewport, original.size_vec2());
+        if response.dragged() {
+            if let Some(pointer) = ui.ctx().pointer_interact_pos() {
+                if image_rect.width() > 0.0 {
+                    *wipe_fraction = ((pointer.x - image_rect.left()) / image_rect.width())
+                        .clamp(0.02, 0.98);
+                }
+            }
+        }
+        let divider_x = image_rect.left() + image_rect.width() * *wipe_fraction;
+        let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
+        p.image(original.id(), image_rect, uv, Color32::WHITE);
+        let clip = Rect::from_min_max(
+            pos2(divider_x, image_rect.top()),
+            image_rect.max,
+        );
+        p.with_clip_rect(clip).image(printed.id(), image_rect, uv, Color32::WHITE);
+        p.line_segment(
+            [pos2(divider_x, image_rect.top()), pos2(divider_x, image_rect.bottom())],
+            Stroke::new(2.0, ACCENT),
+        );
+        p.circle_filled(pos2(divider_x, image_rect.center().y), 11.0, ACCENT);
+        p.line_segment(
+            [pos2(divider_x - 4.0, image_rect.center().y),
+             pos2(divider_x + 4.0, image_rect.center().y)],
+            Stroke::new(2.0, BACKGROUND),
+        );
+        p.text(
+            pos2(cards.left() + 20.0, cards.top() + 17.0),
+            Align2::LEFT_CENTER,
+            "ORIGINAL",
+            FontId::proportional(11.0),
+            SUBTLE,
+        );
+        p.text(
+            pos2(cards.right() - 20.0, cards.top() + 17.0),
+            Align2::RIGHT_CENTER,
+            "PRINT",
+            FontId::proportional(11.0),
+            TEXT,
+        );
     } else {
         let gap = 15.0;
         let width = ((cards.width() - gap) * 0.5).max(0.0);
@@ -335,10 +383,17 @@ pub fn canvas(
             StrokeKind::Inside,
         );
     }
+    let is_empty = original.is_none();
     response
-        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_cursor(if is_empty {
+            egui::CursorIcon::PointingHand
+        } else if wipe {
+            egui::CursorIcon::ResizeHorizontal
+        } else {
+            egui::CursorIcon::Default
+        })
         .clicked()
-        && original.is_none()
+        && is_empty
 }
 
 #[cfg(test)]
