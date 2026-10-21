@@ -17,7 +17,7 @@ use image::RgbaImage;
 use crate::ui as view;
 use crate::{
     effect::{Settings, StippleMode, render},
-    image_io::{load, load_bytes, make_preview, save_png},
+    image_io::{load, load_bytes, make_preview, save_png, save_svg},
     presets::{LOOKS, PALETTES, apply_look, defaults},
 };
 
@@ -235,7 +235,7 @@ impl RetroPrintApp {
         }
     }
 
-    fn export_dialog(&mut self) {
+    fn export_dialog(&mut self, svg: bool) {
         if self.exporting {
             return;
         }
@@ -243,14 +243,16 @@ impl RetroPrintApp {
             return;
         };
 
+        let extension = if svg { "svg" } else { "png" };
+        let label = if svg { "SVG Image" } else { "PNG Image" };
         let suggested = self
             .source_name
             .as_deref()
             .and_then(|name| Path::new(name).file_stem())
-            .map(|stem| format!("{}_retroprint.png", stem.to_string_lossy()))
-            .unwrap_or_else(|| "retroprint.png".into());
+            .map(|stem| format!("{}_retroprint.{extension}", stem.to_string_lossy()))
+            .unwrap_or_else(|| format!("retroprint.{extension}"));
         let mut picker = rfd::FileDialog::new()
-            .add_filter("PNG Image", &["png"])
+            .add_filter(label, &[extension])
             .set_file_name(&suggested);
         if let Some(parent) = self.source_path.as_ref().and_then(|p| p.parent()) {
             picker = picker.set_directory(parent);
@@ -258,7 +260,7 @@ impl RetroPrintApp {
         let Some(mut output_path) = picker.save_file() else {
             return;
         };
-        output_path.set_extension("png");
+        output_path.set_extension(extension);
         if self.source_path.as_deref() == Some(output_path.as_path()) {
             self.status = "Choose a new filename: overwriting the source is disabled".into();
             self.is_error = true;
@@ -269,13 +271,17 @@ impl RetroPrintApp {
         let settings = self.settings;
         let sender = self.export_sender.clone();
         self.exporting = true;
-        self.status = "Rendering full-resolution PNG…".into();
+        self.status = format!("Rendering full-resolution {}…", extension.to_uppercase());
         self.is_error = false;
         thread::spawn(move || {
             let rendered = render(&source, &settings);
-            let outcome = save_png(&output_path, &rendered)
-                .and_then(|()| Ok(std::fs::metadata(&output_path)?.len()))
-                .map_err(|err| err.to_string());
+            let outcome = (if svg {
+                save_svg(&output_path, &rendered)
+            } else {
+                save_png(&output_path, &rendered)
+            })
+            .and_then(|()| Ok(std::fs::metadata(&output_path)?.len()))
+            .map_err(|err| err.to_string());
             let _ = sender.send(ExportResult {
                 path: output_path,
                 result: outcome,
@@ -283,14 +289,22 @@ impl RetroPrintApp {
         });
     }
 
-    fn header(&self, ui: &mut egui::Ui) -> (bool, bool) {
+    fn header(&self, ui: &mut egui::Ui) -> (bool, bool, bool) {
         let mut open = false;
         let mut export = false;
+        let mut export_svg = false;
         ui.horizontal(|ui| {
             ui.add_space(23.0);
             view::brand(ui);
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(20.0);
+                export_svg = ui
+                    .add_enabled(
+                        self.source.is_some() && !self.exporting,
+                        view::icon_button(view::Icon::Export, "SVG", view::TEXT)
+                            .min_size(egui::vec2(84.0, 36.0)),
+                    )
+                    .clicked();
                 export = ui
                     .add_enabled(
                         self.source.is_some() && !self.exporting,
@@ -307,7 +321,7 @@ impl RetroPrintApp {
                     .clicked();
             });
         });
-        (open, export)
+        (open, export, export_svg)
     }
 
     fn inspector(&mut self, ui: &mut egui::Ui) -> bool {
@@ -638,13 +652,14 @@ impl eframe::App for RetroPrintApp {
         let mut changed = false;
         let mut open = false;
         let mut export = false;
+        let mut export_svg = false;
         egui::Panel::top("retroprint-toolbar")
             .exact_size(72.0)
             .frame(egui::Frame::new().fill(view::PANEL).stroke(egui::Stroke::new(1.0, view::BORDER)))
             .show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(12.0);
-                    (open, export) = self.header(ui);
+                    (open, export, export_svg) = self.header(ui);
                 });
             });
 
@@ -702,7 +717,9 @@ impl eframe::App for RetroPrintApp {
             self.open_dialog(&ctx);
         }
         if export || keyboard_save {
-            self.export_dialog();
+            self.export_dialog(false);
+        } else if export_svg {
+            self.export_dialog(true);
         }
 
         if self.preview_pending || self.exporting {
@@ -716,7 +733,7 @@ fn texture_from_image(ctx: &egui::Context, name: &str, pixels: &RgbaImage) -> Te
         [pixels.width() as usize, pixels.height() as usize],
         pixels.as_raw(),
     );
-    ctx.load_texture(name, rgba, egui::TextureOptions::LINEAR)
+    ctx.load_texture(name, rgba, if name == "print" { egui::TextureOptions::NEAREST } else { egui::TextureOptions::LINEAR })
 }
 
 fn file_label(path: &Path) -> String {
