@@ -265,6 +265,8 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
                 let screen = 0.5
                     - 0.25
                         * ((std::f32::consts::TAU * px).cos() + (std::f32::consts::TAU * py).cos());
+                coverage >= screen
+            }
             StippleMode::LineScreen => {
                 let period = (cell * 3).max(3) as f32;
                 let phase = ((x as f32 + 0.45 * y as f32) / period).rem_euclid(1.0);
