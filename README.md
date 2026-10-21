@@ -4,7 +4,7 @@ RetroPrint is a compact, offline, cross-platform Rust desktop app that turns pho
 
 ![RetroPrint showing the original image and its two-color print preview](assets/retroprint-preview.png)
 
-The editor offers seven rendering modes, from organic stipple and blue-noise dots to hard threshold, ordered Bayer screens, and error diffusion. Pixel-based modes have independent Pixel Size and Dither Strength controls. Colors, alpha-safe transparent paper, and indexed-PNG export are supported.
+The editor offers nine rendering modes, from organic stipple and blue-noise dots to hard threshold, ordered Bayer screens, and error diffusion. Pixel-based modes have independent Pixel Size and Dither Strength controls. Colors, alpha-safe transparent paper, and lossless indexed-PNG and vector SVG export are supported.
 
 The UI uses the official [Lucide](https://lucide.dev/) vector icon set for buttons, controls, import affordances, and status indicators. Icons are bundled into the executable; no separate font or installation is required.
 
@@ -13,13 +13,13 @@ The [GitHub Actions workflow](.github/workflows/rust.yml) checks formatting, lin
 ## Features
 
 - Drag-and-drop or open a PNG, JPEG, or still WebP. Click the empty preview area to browse; drops also accept readable file handles when a direct path is unavailable.
-- Side-by-side original and processed previews.
-- Seven texture modes: Organic, Fine Stipple, Threshold, Bayer 4×4, Bayer 8×8, Floyd–Steinberg, and Atkinson.
-- Independent Pixel Size and Dither Strength controls for pixel-based modes; Grain Size and Grain Amount for Organic/Fine, plus Contrast, Threshold and Irregularity.
+- Side-by-side previews or draggable Wipe Compare, with nearest-neighbor processed image sampling.
+- Nine texture modes: Organic, Fine Stipple, Threshold, Bayer 4×4, Bayer 8×8, Halftone Dots, Line Screen, Floyd–Steinberg, and Atkinson.
+- Independent Pixel Size and Dither Strength controls for pixel-based modes; Grain Size and Grain Amount for Organic/Fine, plus Contrast, Threshold, conditional Blur and Irregularity.
 - Independently customizable ink and paper colors, with 2D spectrum pickers, `#RRGGBB` inputs, and six one-click palettes.
 - Transparent Paper option for print-ready cutouts.
 - Seven one-click print recipes, deterministic seed, Reseed, and Reset.
-- Save original-resolution PNG in a background thread, automatically using 1-bit indexed PNG for two-color images; preserve all input alpha/color values when more palette entries are needed.
+- Save original-resolution PNG or SVG in a background thread. PNG uses lossless indexed color when possible; SVG merges horizontal and vertical pixel runs into vector rectangles and retains transparency.
 - No cloud, telemetry, Python, Photoshop, OpenCV, or FFmpeg.
 
 ## Build and run
@@ -75,14 +75,14 @@ The standalone bundle is a direct download, not a software-store listing or an a
 ## Usage
 
 1. Drag an image into the window or click **Open Image**.
-2. Choose a print recipe or one of seven **Texture Mode** engines. Organic and Fine preserve their granular appearance; pixel-based modes create ordered, binary, or error-diffusion patterns.
-3. In pixel-based modes, adjust **Pixel Size** to change the working grid and **Dither Strength** to change distribution (except Threshold). In Organic/Fine, use **Grain Size** and **Grain Amount**.
+2. Choose a print recipe or one of nine **Texture Mode** engines. Organic and Fine preserve their granular appearance; pixel-based modes create ordered, binary, or error-diffusion patterns.
+3. In pixel-based modes, adjust **Pixel Size** to change the working grid, **Blur** to soften detail, and **Dither Strength** to change distribution where supported. In Organic/Fine, use **Grain Size** and **Grain Amount**.
 4. Tune **Contrast**, **Threshold**, and, when applicable, **Irregularity** to shape the print.
 5. Choose the **Ink** and **Paper** colors independently: click either swatch for its hue/saturation spectrum or type a six-digit HEX color (`#D45A36`); alternatively select a quick palette.
 6. Optionally enable **Transparent Paper** to export only the printed ink. This is **not** semantic background removal: highlights and unprinted areas also become transparent.
-7. Click **Export PNG** and select a file.
+7. Switch on **Wipe Compare** to drag a divider across the previews, or keep the default side-by-side view. Click **Export PNG** or **SVG** to save.
 
-The app preserves original input alpha. The saved PNG uses the original image dimensions; previews are intentionally reduced for responsiveness. On export, the app checks how many distinct RGBA colors are actually used. It automatically encodes up to 256 unique colors as a lossless 1-, 2-, 4-, or 8-bit indexed PNG (typically only **1 bit per pixel** for opaque two-color prints); images with more than 256 RGBA colors use full RGBA PNG. This is pixel-for-pixel reversible, without color reduction, resampling, or manual RGB conversion. File sizes vary with image dimensions and texture complexity.
+The app preserves original input alpha. Both exports use the original image dimensions; previews are intentionally reduced for responsiveness. On export, the app checks how many distinct RGBA colors are actually used. It automatically encodes up to 256 unique colors as a lossless 1-, 2-, 4-, or 8-bit indexed PNG (typically only **1 bit per pixel** for opaque two-color prints); images with more than 256 RGBA colors use full RGBA PNG. This is pixel-for-pixel reversible, without color reduction, resampling, or manual RGB conversion. File sizes vary with image dimensions and texture complexity.
 
 ## Tests
 
@@ -99,7 +99,7 @@ cargo test --locked
 | `src/main.rs` | GUI, asynchronous preview/export workers, drag-and-drop, file dialogs |
 | `src/ui.rs` | Full-window UI layout, theme, embedded Lucide icons, preview rendering |
 | `src/effect.rs` | CPU image processing and unit tests |
-| `src/image_io.rs` | Import, previews, and PNG export |
+| `src/image_io.rs` | Import, previews, PNG encoding and merged-rectangle SVG export |
 | `src/presets.rs` | Default parameters and colors |
 | `assets/icons/` | Official Lucide SVG icons and their upstream license notice |
 | `assets/noise/` | Christoph Peters's CC0 blue-noise mask and license notice |
@@ -108,7 +108,7 @@ cargo test --locked
 
 ## Limitations
 
-- This is an original stipple approximation rather than a Photoshop filter-clone.
+- The print engines are original rendering implementations, not clones of proprietary filters.
 - No automatic object segmentation or background removal.
 - No ICC color-management pipeline or guaranteed exact print color reproduction.
 - Very large images can consume considerable memory before input limits are evaluated.
