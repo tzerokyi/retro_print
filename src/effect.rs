@@ -3,20 +3,22 @@
 use image::{Rgba, RgbaImage};
 use std::sync::OnceLock;
 
-/// The legacy clustered texture and the new detail-preserving stochastic screen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StippleMode {
     Organic,
     Fine,
+    Threshold,
+    Bayer4,
     Bayer,
+    FloydSteinberg,
     Atkinson,
 }
 
-/// Controls are normalized to 0..=100 for a consistent GUI contract.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Settings {
     pub mode: StippleMode,
     pub grain_size: f32,
+    pub pixel_size: f32,
     pub grain_amount: f32,
     pub contrast: f32,
     pub threshold: f32,
@@ -30,6 +32,7 @@ pub struct Settings {
 impl Settings {
     pub fn normalized(mut self) -> Self {
         self.grain_size = clamp_control(self.grain_size);
+        self.pixel_size = clamp_control(self.pixel_size);
         self.grain_amount = clamp_control(self.grain_amount);
         self.contrast = clamp_control(self.contrast);
         self.threshold = clamp_control(self.threshold);
@@ -46,19 +49,16 @@ fn clamp_control(value: f32) -> f32 {
     }
 }
 
-/// Render output at the same dimensions as `source` without changing the input.
-/// The seed fixes every pseudo-random decision; output is bitwise repeatable.
 pub fn render(source: &RgbaImage, settings: &Settings) -> RgbaImage {
     let s = settings.normalized();
     match s.mode {
         StippleMode::Organic => render_organic(source, &s),
         StippleMode::Fine => render_fine(source, &s),
-        StippleMode::Bayer => render_bayer(source, &s),
-        StippleMode::Atkinson => render_atkinson(source, &s),
+        StippleMode::Threshold | StippleMode::Bayer4 | StippleMode::Bayer
+        | StippleMode::FloydSteinberg | StippleMode::Atkinson => render_pixel_dither(source, &s),
     }
 }
 
-// Keep the original effect exactly intact, including its seeded pixel pattern.
 fn tone_coverage(pixel: &Rgba<u8>, s: &Settings) -> f32 {
     let luma = (0.2126 * pixel[0] as f32
         + 0.7152 * pixel[1] as f32
@@ -81,71 +81,115 @@ fn print_pixel(input: &Rgba<u8>, s: &Settings, printed: bool) -> Rgba<u8> {
     }
 }
 
-fn render_bayer(source: &RgbaImage, s: &Settings) -> RgbaImage {
-    const MATRIX: [[u8; 8]; 8] = [
-        [0,48,12,60,3,51,15,63],
-        [32,16,44,28,35,19,47,31],
-        [8,56,4,52,11,59,7,55],
-        [40,24,36,20,43,27,39,23],
-        [2,50,14,62,1,49,13,61],
-        [34,18,46,30,33,17,45,29],
-        [10,58,6,54,9,57,5,53],
-        [42,26,38,22,41,25,37,21],
-    ];
-    let min_side = source.width().min(source.height()).max(1) as f32;
-    let scale = (1.0 + (s.grain_size / 100.0 * min_side / 350.0).floor())
-        .clamp(1.0, 12.0) as u32;
-    let amount = s.grain_amount / 100.0;
-    let irregularity = s.irregularity / 100.0;
-    RgbaImage::from_fn(source.width(), source.height(), |x, y| {
-        let pixel = source.get_pixel(x, y);
-        let cx = (x / scale).wrapping_add(s.seed & 7) & 7;
-        let cy = (y / scale).wrapping_add((s.seed >> 8) & 7) & 7;
-        let rank = (MATRIX[cy as usize][cx as usize] as f32 + 0.5) / 64.0;
-        let jitter = (hash01(x as i32 / scale as i32, y as i32 / scale as i32, s.seed) - 0.5)
-            * irregularity * 0.2;
-        let cutoff = 0.5 * (1.0 - amount) + (rank + jitter).clamp(0.0, 1.0) * amount;
-        print_pixel(pixel, s, tone_coverage(pixel, s) >= cutoff)
-    })
+
+fn pixel_cell_size(image: &RgbaImage, s: &Settings) -> u32 {
+    let side = image.width().min(image.height()).max(1) as f32;
+    (1.0 + (s.pixel_size / 100.0).powf(1.35) * 36.0 * side / 900.0)
+        .round().clamp(1.0, 128.0) as u32
 }
 
-fn render_atkinson(source: &RgbaImage, s: &Settings) -> RgbaImage {
+fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
     let (width, height) = source.dimensions();
-    let w = width as usize;
-    let h = height as usize;
-    let mut tone: Vec<f32> = source.pixels().map(|p| tone_coverage(p, s)).collect();
-    let mut out = RgbaImage::new(width, height);
-    let strength = s.grain_amount / 100.0;
-    let error_spread = strength * (0.65 + 0.35 * s.irregularity / 100.0);
-    for y in 0..h {
-        let left_to_right = y % 2 == 0;
-        for step in 0..w {
-            let x = if left_to_right { step } else { w - 1 - step };
-            let idx = y * w + x;
-            let input = source.get_pixel(x as u32, y as u32);
-            if input[3] == 0 {
-                out.put_pixel(x as u32, y as u32, Rgba([0, 0, 0, 0]));
-                continue;
-            }
-            let jitter = (hash01(x as i32, y as i32, s.seed) - 0.5)
-                * (1.0 - strength) * 0.08;
-            let value = (tone[idx] + jitter).clamp(0.0, 1.0);
-            let printed = value >= 0.5;
-            out.put_pixel(x as u32, y as u32, print_pixel(input, s, printed));
-            let error = (value - if printed { 1.0 } else { 0.0 }) * error_spread / 8.0;
-            let direction: isize = if left_to_right { 1 } else { -1 };
-            for (dx, dy) in [(1,0),(2,0),(-1,1),(0,1),(1,1),(0,2)] {
-                let xx = x as isize + dx * direction;
-                let yy = y + dy as usize;
-                if xx >= 0 && (xx as usize) < w && yy < h
-                    && source.get_pixel(xx as u32, yy as u32)[3] != 0
-                {
-                    tone[yy * w + xx as usize] += error;
+    if width == 0 || height == 0 { return source.clone(); }
+    let cell = pixel_cell_size(source, s);
+    let gw = width.div_ceil(cell) as usize;
+    let gh = height.div_ceil(cell) as usize;
+    let mut tones = vec![0.0f32; gw * gh];
+    let mut active = vec![false; gw * gh];
+
+    for gy in 0..gh {
+        for gx in 0..gw {
+            let mut weighted = 0.0;
+            let mut sum_alpha = 0.0;
+            let x0 = gx as u32 * cell;
+            let y0 = gy as u32 * cell;
+            for y in y0..y0.saturating_add(cell).min(height) {
+                for x in x0..x0.saturating_add(cell).min(width) {
+                    let p = source.get_pixel(x, y);
+                    let alpha = p[3] as f32 / 255.0;
+                    weighted += tone_coverage(p, s) * alpha;
+                    sum_alpha += alpha;
                 }
+            }
+            let index = gy * gw + gx;
+            if sum_alpha > 0.0 {
+                active[index] = true;
+                tones[index] = weighted / sum_alpha;
             }
         }
     }
-    out
+
+    let mut mask = vec![false; tones.len()];
+    let strength = s.grain_amount / 100.0;
+    let random = s.irregularity / 100.0;
+    match s.mode {
+        StippleMode::Threshold => {
+            for i in 0..mask.len() { mask[i] = active[i] && tones[i] >= 0.5; }
+        }
+        StippleMode::Bayer4 | StippleMode::Bayer => {
+            const B4: [[u8; 4]; 4] = [
+                [0,8,2,10], [12,4,14,6], [3,11,1,9], [15,7,13,5]
+            ];
+            const B8: [[u8; 8]; 8] = [
+                [0,48,12,60,3,51,15,63], [32,16,44,28,35,19,47,31],
+                [8,56,4,52,11,59,7,55], [40,24,36,20,43,27,39,23],
+                [2,50,14,62,1,49,13,61], [34,18,46,30,33,17,45,29],
+                [10,58,6,54,9,57,5,53], [42,26,38,22,41,25,37,21]
+            ];
+            for y in 0..gh {
+                for x in 0..gw {
+                    let i = y * gw + x;
+                    if !active[i] { continue; }
+                    let rank = if s.mode == StippleMode::Bayer4 {
+                        (B4[(y + ((s.seed >> 8) as usize & 3)) & 3]
+                            [(x + (s.seed as usize & 3)) & 3] as f32 + 0.5) / 16.0
+                    } else {
+                        (B8[(y + ((s.seed >> 8) as usize & 7)) & 7]
+                            [(x + (s.seed as usize & 7)) & 7] as f32 + 0.5) / 64.0
+                    };
+                    let jitter = (hash01(x as i32, y as i32, s.seed) - 0.5) * random * 0.12;
+                    let cutoff = 0.5 + (rank - 0.5) * strength + jitter;
+                    mask[i] = tones[i] >= cutoff;
+                }
+            }
+        }
+        StippleMode::FloydSteinberg | StippleMode::Atkinson => {
+            const FLOYD: &[(isize, usize, f32)] = &[
+                (1,0,7.0/16.0),(-1,1,3.0/16.0),(0,1,5.0/16.0),(1,1,1.0/16.0)
+            ];
+            const ATKINSON: &[(isize, usize, f32)] = &[
+                (1,0,0.125),(2,0,0.125),(-1,1,0.125),
+                (0,1,0.125),(1,1,0.125),(0,2,0.125)
+            ];
+            let neighbors = if s.mode == StippleMode::FloydSteinberg { FLOYD } else { ATKINSON };
+            for y in 0..gh {
+                let forward = y % 2 == 0;
+                let direction: isize = if forward { 1 } else { -1 };
+                for step in 0..gw {
+                    let x = if forward { step } else { gw - 1 - step };
+                    let i = y * gw + x;
+                    if !active[i] { continue; }
+                    let jitter = (hash01(x as i32, y as i32, s.seed) - 0.5) * random * 0.12;
+                    let value = (tones[i] + jitter).clamp(0.0, 1.0);
+                    mask[i] = value >= 0.5;
+                    let error = (value - if mask[i] { 1.0 } else { 0.0 }) * strength;
+                    for &(dx, dy, weight) in neighbors {
+                        let nx = x as isize + dx * direction;
+                        let ny = y + dy;
+                        if nx >= 0 && (nx as usize) < gw && ny < gh {
+                            let dest = ny * gw + nx as usize;
+                            if active[dest] { tones[dest] += error * weight; }
+                        }
+                    }
+                }
+            }
+        }
+        StippleMode::Organic | StippleMode::Fine => unreachable!(),
+    }
+    RgbaImage::from_fn(width, height, |x, y| {
+        let i = (y / cell) as usize * gw + (x / cell) as usize;
+        print_pixel(source.get_pixel(x, y), s, mask[i])
+    })
 }
 
 fn render_organic(source: &RgbaImage, s: &Settings) -> RgbaImage {
