@@ -70,12 +70,12 @@ pub struct Look {
 /// Curated print recipes. Applying one retains the current seed and transparency,
 /// so users can compare looks without unexpectedly changing their cutout/export.
 pub const LOOKS: [Look; 6] = [
-    Look { label: "Newsprint", mode: StippleMode::Fine, grain_size: 20.0, grain_amount: 94.0, contrast: 64.0, threshold: 51.0, irregularity: 10.0, palette: 5 },
+    Look { label: "Newsprint", mode: StippleMode::Bayer, grain_size: 20.0, grain_amount: 94.0, contrast: 64.0, threshold: 51.0, irregularity: 10.0, palette: 5 },
     Look { label: "Risograph", mode: StippleMode::Organic, grain_size: 54.0, grain_amount: 80.0, contrast: 67.0, threshold: 55.0, irregularity: 43.0, palette: 2 },
     Look { label: "Fine Etching", mode: StippleMode::Fine, grain_size: 12.0, grain_amount: 87.0, contrast: 74.0, threshold: 47.0, irregularity: 7.0, palette: 0 },
-    Look { label: "Pulp Print", mode: StippleMode::Organic, grain_size: 78.0, grain_amount: 92.0, contrast: 76.0, threshold: 58.0, irregularity: 72.0, palette: 1 },
+    Look { label: "Pulp Print", mode: StippleMode::Atkinson, grain_size: 78.0, grain_amount: 92.0, contrast: 76.0, threshold: 58.0, irregularity: 72.0, palette: 1 },
     Look { label: "Soft Grain", mode: StippleMode::Organic, grain_size: 32.0, grain_amount: 48.0, contrast: 42.0, threshold: 49.0, irregularity: 17.0, palette: 3 },
-    Look { label: "Blue Ink", mode: StippleMode::Fine, grain_size: 24.0, grain_amount: 88.0, contrast: 72.0, threshold: 50.0, irregularity: 12.0, palette: 4 },
+    Look { label: "Blue Ink", mode: StippleMode::Bayer, grain_size: 24.0, grain_amount: 88.0, contrast: 72.0, threshold: 50.0, irregularity: 12.0, palette: 4 },
 ];
 
 pub fn apply_look(settings: &mut Settings, look: Look) {
