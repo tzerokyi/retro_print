@@ -670,7 +670,7 @@ impl eframe::App for RetroPrintApp {
                 egui::ScrollArea::vertical()
                     .id_salt("retroprint-inspector-scroll")
                     .auto_shrink([false, false])
-                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
+                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
                     .show(ui, |ui| {
                         changed = self.inspector(ui);
                     });
