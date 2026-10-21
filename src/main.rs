@@ -18,7 +18,7 @@ use crate::ui as view;
 use crate::{
     effect::{Settings, StippleMode, render},
     image_io::{load, load_bytes, make_preview, save_png},
-    presets::{PALETTES, defaults},
+    presets::{LOOKS, PALETTES, apply_look, defaults},
 };
 
 struct PreviewRequest {
@@ -314,6 +314,36 @@ impl RetroPrintApp {
         let mut changed = false;
         ui.add_space(10.0);
         view::section(ui, "P R I N T   C O N T R O L S", view::Icon::Controls);
+        ui.label(RichText::new("Print Recipes").size(12.0).color(view::TEXT));
+        ui.label(RichText::new("Start with a look, then fine-tune the sliders below.")
+            .size(10.0).color(view::SUBTLE));
+        egui::Grid::new("print_recipes")
+            .num_columns(3)
+            .spacing([6.0, 7.0])
+            .show(ui, |ui| {
+                for (index, look) in LOOKS.iter().enumerate() {
+                    let selected = self.settings.mode == look.mode
+                        && self.settings.grain_size == look.grain_size
+                        && self.settings.grain_amount == look.grain_amount
+                        && self.settings.contrast == look.contrast
+                        && self.settings.threshold == look.threshold
+                        && self.settings.irregularity == look.irregularity
+                        && self.settings.ink == PALETTES[look.palette].ink
+                        && self.settings.paper == PALETTES[look.palette].paper;
+                    if ui.add_sized(
+                        [88.0, 30.0],
+                        egui::Button::new(RichText::new(look.label).size(10.0)).selected(selected),
+                    ).on_hover_text("Apply print texture and ink/paper colors").clicked() {
+                        apply_look(&mut self.settings, *look);
+                        self.sync_hex_fields();
+                        changed = true;
+                    }
+                    if index % 3 == 2 {
+                        ui.end_row();
+                    }
+                }
+            });
+        ui.add_space(14.0);
         ui.label(RichText::new("Texture Mode").size(12.0).color(view::TEXT));
         ui.horizontal(|ui| {
             let width = (ui.available_width() - 8.0) * 0.5;
@@ -399,6 +429,15 @@ impl RetroPrintApp {
                 }
             }
         });
+        ui.add_space(10.0);
+        if ui.button("⇄  Swap Ink / Paper")
+            .on_hover_text("Reverse foreground and background colors without changing the texture")
+            .clicked()
+        {
+            std::mem::swap(&mut self.settings.ink, &mut self.settings.paper);
+            self.sync_hex_fields();
+            changed = true;
+        }
         ui.add_space(16.0);
         changed |= ui
             .checkbox(&mut self.settings.transparent_paper, "Transparent Paper")
