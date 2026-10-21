@@ -608,9 +608,6 @@ impl eframe::App for RetroPrintApp {
         let mut changed = false;
         let mut open = false;
         let mut export = false;
-        // Panels reserve their geometry before the central canvas is laid out.
-        // Do NOT place the inspector in a left-to-right Ui: it will lay every
-        // slider on a single line, overflow the window, and hide the canvas.
         egui::Panel::top("retroprint-toolbar")
             .exact_size(72.0)
             .frame(egui::Frame::new().fill(view::PANEL).stroke(egui::Stroke::new(1.0, view::BORDER)))
@@ -647,8 +644,13 @@ impl eframe::App for RetroPrintApp {
             )
             .show(ui, |ui| {
                 egui::ScrollArea::vertical()
+                    .id_salt("retroprint-inspector-scroll")
                     .auto_shrink([false, false])
-                    .show(ui, |ui| changed = self.inspector(ui));
+                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
+                    .show(ui, |ui| {
+                        ui.set_max_width((sidebar_width - 62.0).max(180.0));
+                        changed = self.inspector(ui);
+                    });
             });
 
         egui::CentralPanel::default()
@@ -674,7 +676,6 @@ impl eframe::App for RetroPrintApp {
             self.export_dialog();
         }
 
-        // Poll asynchronous jobs even while the user is not moving the mouse.
         if self.preview_pending || self.exporting {
             ctx.request_repaint_after(std::time::Duration::from_millis(40));
         }
