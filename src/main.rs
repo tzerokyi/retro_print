@@ -647,7 +647,7 @@ impl eframe::App for RetroPrintApp {
                 egui::Frame::new()
                     .fill(view::PANEL)
                     .stroke(egui::Stroke::new(1.0, view::BORDER))
-                    .inner_margin(egui::Margin::symmetric(20, 16)),
+                    .inner_margin(egui::Margin { left: 20, right: 5, top: 16, bottom: 16 }),
             )
             .show(ui, |ui| {
                 egui::ScrollArea::vertical()
@@ -655,7 +655,6 @@ impl eframe::App for RetroPrintApp {
                     .auto_shrink([false, false])
                     .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
                     .show(ui, |ui| {
-                        ui.set_max_width((sidebar_width - 62.0).max(180.0));
                         changed = self.inspector(ui);
                     });
             });
