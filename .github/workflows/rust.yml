@@ -25,6 +25,15 @@ jobs:
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: Tests
         run: cargo test --locked
+      - name: Render comparison galleries
+        run: cargo run --locked --example algorithm_gallery -- target/effect-gallery
+      - name: Upload effect gallery
+        uses: actions/upload-artifact@v6
+        with:
+          name: retroprint-effect-gallery
+          path: target/effect-gallery/
+          if-no-files-found: error
+          retention-days: 30
 
   linux:
     name: Build Linux x86-64
