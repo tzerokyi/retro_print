@@ -1,5 +1,3 @@
-//! Deterministic, CPU-only, two-color stochastic print renderer.
-
 use image::{Rgba, RgbaImage};
 use std::sync::OnceLock;
 
@@ -10,6 +8,8 @@ pub enum StippleMode {
     Threshold,
     Bayer4,
     Bayer,
+    Halftone,
+    LineScreen,
     FloydSteinberg,
     Atkinson,
 }
@@ -19,6 +19,7 @@ pub struct Settings {
     pub mode: StippleMode,
     pub grain_size: f32,
     pub pixel_size: f32,
+    pub blur: f32,
     pub grain_amount: f32,
     pub contrast: f32,
     pub threshold: f32,
@@ -33,6 +34,7 @@ impl Settings {
     pub fn normalized(mut self) -> Self {
         self.grain_size = clamp_control(self.grain_size);
         self.pixel_size = clamp_control(self.pixel_size);
+        self.blur = clamp_control(self.blur);
         self.grain_amount = clamp_control(self.grain_amount);
         self.contrast = clamp_control(self.contrast);
         self.threshold = clamp_control(self.threshold);
@@ -55,6 +57,7 @@ pub fn render(source: &RgbaImage, settings: &Settings) -> RgbaImage {
         StippleMode::Organic => render_organic(source, &s),
         StippleMode::Fine => render_fine(source, &s),
         StippleMode::Threshold | StippleMode::Bayer4 | StippleMode::Bayer
+        | StippleMode::Halftone | StippleMode::LineScreen
         | StippleMode::FloydSteinberg | StippleMode::Atkinson => render_pixel_dither(source, &s),
     }
 }
@@ -119,6 +122,36 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
         }
     }
 
+    if s.blur > 0.0 {
+        let original = tones.clone();
+        let radius = if s.blur >= 55.0 { 2isize } else { 1isize };
+        let blend = s.blur / 100.0;
+        for y in 0..gh {
+            for x in 0..gw {
+                let index = y * gw + x;
+                if !active[index] { continue; }
+                let mut sum = 0.0;
+                let mut count = 0.0;
+                for dy in -radius..=radius {
+                    for dx in -radius..=radius {
+                        let xx = x as isize + dx;
+                        let yy = y as isize + dy;
+                        if xx >= 0 && (xx as usize) < gw && yy >= 0 && (yy as usize) < gh {
+                            let neighbor = yy as usize * gw + xx as usize;
+                            if active[neighbor] {
+                                sum += original[neighbor];
+                                count += 1.0;
+                            }
+                        }
+                    }
+                }
+                if count > 0.0 {
+                    tones[index] += (sum / count - tones[index]) * blend;
+                }
+            }
+        }
+    }
+
     let mut mask = vec![false; tones.len()];
     let strength = s.grain_amount / 100.0;
     let random = s.irregularity / 100.0;
@@ -153,6 +186,7 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
                 }
             }
         }
+        StippleMode::Halftone | StippleMode::LineScreen => {}
         StippleMode::FloydSteinberg | StippleMode::Atkinson => {
             const FLOYD: &[(isize, usize, f32)] = &[
                 (1,0,7.0/16.0),(-1,1,3.0/16.0),(0,1,5.0/16.0),(1,1,1.0/16.0)
@@ -188,15 +222,30 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
     }
     RgbaImage::from_fn(width, height, |x, y| {
         let i = (y / cell) as usize * gw + (x / cell) as usize;
-        print_pixel(source.get_pixel(x, y), s, mask[i])
+        let ink = match s.mode {
+            StippleMode::Halftone => {
+                let coverage = tones[i].clamp(0.0, 1.0);
+                let px = (x % cell) as f32 + 0.5;
+                let py = (y % cell) as f32 + 0.5;
+                let nx = px / cell as f32 - 0.5;
+                let ny = py / cell as f32 - 0.5;
+                nx * nx + ny * ny <= (coverage / std::f32::consts::PI).min(0.5)
+                    || coverage >= 0.999
+            }
+            StippleMode::LineScreen => {
+                let period = (cell * 3).max(3) as f32;
+                let phase = ((x as f32 + 0.45 * y as f32) / period).rem_euclid(1.0);
+                (phase - 0.5).abs() * 2.0 < tones[i].clamp(0.0, 1.0)
+            }
+            _ => mask[i],
+        };
+        print_pixel(source.get_pixel(x, y), s, ink)
     })
 }
 
 fn render_organic(source: &RgbaImage, s: &Settings) -> RgbaImage {
     let (width, height) = source.dimensions();
     let base = width.min(height).max(1) as f32 / 1000.0;
-    // Spatial frequency scales with image resolution, so a downscaled preview
-    // has approximately the same relative print grain as the saved original.
     let grain_period = ((0.8 + 5.7 * s.grain_size / 100.0) * base).max(0.65);
     let amount = s.grain_amount / 100.0;
     let irregularity = s.irregularity / 100.0;
@@ -211,16 +260,12 @@ fn render_organic(source: &RgbaImage, s: &Settings) -> RgbaImage {
             return Rgba([0, 0, 0, 0]);
         }
 
-        // Standard approximate sRGB luminance is sufficient for a graphic,
-        // non-color-managed two-ink effect.
         let luminance =
             (0.2126 * input[0] as f32 + 0.7152 * input[1] as f32 + 0.0722 * input[2] as f32)
                 / 255.0;
         let tone = (0.5 + (luminance - 0.5) * contrast_gain).clamp(0.0, 1.0);
         let coverage = (1.0 - tone + threshold_offset).clamp(0.0, 1.0);
 
-        // Pixel-level noise keeps individual dots crisp. A spatially smoothed
-        // field grows natural-looking, irregular clusters as Grain Size grows.
         let pixel_noise = hash01(x as i32, y as i32, s.seed);
         let smooth_noise = value_noise(
             x as f32 / grain_period,
@@ -248,9 +293,6 @@ fn render_organic(source: &RgbaImage, s: &Settings) -> RgbaImage {
     })
 }
 
-/// Higher-quality print screen: bilateral denoising rejects color differences
-/// across edges, a wider neighborhood restores useful local contrast, and a
-/// public-domain void-and-cluster blue-noise mask separates individual dots.
 fn render_fine(source: &RgbaImage, s: &Settings) -> RgbaImage {
     let (width, height) = source.dimensions();
     let w = width as usize;
@@ -267,8 +309,6 @@ fn render_fine(source: &RgbaImage, s: &Settings) -> RgbaImage {
     let irregularity = s.irregularity / 100.0;
     let threshold_offset = (s.threshold - 50.0) / 100.0 * 0.74;
     let contrast_gain = 0.55 + 1.85 * s.contrast / 100.0;
-    // Grain Size still controls the scale of the organic variation, but blue
-    // noise remains dominant so that midtones don't turn into random clumps.
     let organic_mix = 0.08 + 0.15 * s.grain_size / 100.0;
     let blue_noise = blue_noise_mask();
 
@@ -352,8 +392,6 @@ fn sampled_luma(luminances: &[f32], width: usize, height: usize, x: i32, y: i32)
     luminances[yy * width + xx]
 }
 
-/// The LDR_LLL1_0 mask is by Christoph Peters, CC0 1.0. Decode once; the
-/// immutable single-channel rank map is reused for all previews and exports.
 fn blue_noise_mask() -> &'static [u8] {
     static MASK: OnceLock<Vec<u8>> = OnceLock::new();
     MASK.get_or_init(|| {
