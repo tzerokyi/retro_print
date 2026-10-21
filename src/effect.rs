@@ -94,7 +94,11 @@ fn pixel_cell_size(image: &RgbaImage, s: &Settings) -> u32 {
 fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
     let (width, height) = source.dimensions();
     if width == 0 || height == 0 { return source.clone(); }
-    let cell = pixel_cell_size(source, s);
+    let cell = if matches!(s.mode, StippleMode::Halftone | StippleMode::LineScreen) {
+        pixel_cell_size(source, s).max(4)
+    } else {
+        pixel_cell_size(source, s)
+    };
     let gw = width.div_ceil(cell) as usize;
     let gh = height.div_ceil(cell) as usize;
     let mut tones = vec![0.0f32; gw * gh];
@@ -643,6 +647,8 @@ mod dithering_tests {
             StippleMode::Threshold,
             StippleMode::Bayer4,
             StippleMode::Bayer,
+            StippleMode::Halftone,
+            StippleMode::LineScreen,
             StippleMode::FloydSteinberg,
             StippleMode::Atkinson,
         ] {
@@ -723,6 +729,40 @@ mod dithering_tests {
             }
             s.transparent_paper = false;
         }
+    }
+
+    #[test]
+    fn screened_modes_have_real_shapes() {
+        let input = RgbaImage::from_pixel(96, 96, Rgba([128, 128, 128, 255]));
+        let mut s = defaults();
+        s.pixel_size = 70.0;
+        let mut modes = Vec::new();
+        for mode in [StippleMode::Halftone, StippleMode::LineScreen] {
+            s.mode = mode;
+            let result = render(&input, &s);
+            assert_eq!(result.dimensions(), input.dimensions());
+            assert!(result.pixels().any(|p| p.0[..3] == s.ink));
+            assert!(result.pixels().any(|p| p.0[..3] == s.paper));
+            modes.push(result);
+        }
+        assert_ne!(modes[0], modes[1]);
+    }
+
+    #[test]
+    fn blur_changes_pixel_grid_output() {
+        let input = RgbaImage::from_fn(96, 96, |x, y| {
+            let v = if (x / 4 + y / 4) % 2 == 0 { 0 } else { 255 };
+            Rgba([v, v, v, 255])
+        });
+        let mut s = defaults();
+        s.mode = StippleMode::Bayer;
+        s.pixel_size = 0.0;
+        s.grain_amount = 100.0;
+        s.blur = 0.0;
+        let sharp = render(&input, &s);
+        s.blur = 100.0;
+        let blurred = render(&input, &s);
+        assert_ne!(sharp, blurred);
     }
 
     #[test]
