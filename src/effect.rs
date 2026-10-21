@@ -260,11 +260,14 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
         let ink = match s.mode {
             StippleMode::Halftone => {
                 let coverage = tones[i].clamp(0.0, 1.0);
-                let px = (x % cell) as f32 + 0.5;
-                let py = (y % cell) as f32 + 0.5;
-                let nx = px / cell as f32 - 0.5;
-                let ny = py / cell as f32 - 0.5;
-                nx * nx + ny * ny <= (coverage / std::f32::consts::PI).min(0.5) || coverage >= 0.999
+                let px = ((x % cell) as f32 + 0.5) / cell as f32 - 0.5;
+                let py = ((y % cell) as f32 + 0.5) / cell as f32 - 0.5;
+                let screen = 0.5
+                    - 0.25 * (
+                        (std::f32::consts::TAU * px).cos()
+                            + (std::f32::consts::TAU * py).cos()
+                    );
+                coverage >= screen
             }
             StippleMode::LineScreen => {
                 let period = (cell * 3).max(3) as f32;
@@ -784,6 +787,39 @@ mod dithering_tests {
             modes.push(result);
         }
         assert_ne!(modes[0], modes[1]);
+    }
+
+    #[test]
+    fn halftone_midtones_remain_monotonic() {
+        let input = RgbaImage::from_fn(512, 128, |x, _| {
+            let value = if x < 128 {
+                230
+            } else if x < 256 {
+                170
+            } else if x < 384 {
+                85
+            } else {
+                25
+            };
+            Rgba([value, value, value, 255])
+        });
+        let mut s = defaults();
+        s.mode = StippleMode::Halftone;
+        s.pixel_size = 100.0;
+        s.contrast = 50.0;
+        let output = render(&input, &s);
+        let ink_counts: Vec<_> = (0..4)
+            .map(|band| {
+                (8..120)
+                    .flat_map(|y| (band * 128 + 8..band * 128 + 120).map(move |x| (x, y)))
+                    .filter(|&(x, y)| output.get_pixel(x, y).0[..3] == s.ink)
+                    .count()
+            })
+            .collect();
+        assert!(
+            ink_counts.windows(2).all(|pair| pair[0] < pair[1]),
+            "{ink_counts:?}"
+        );
     }
 
     #[test]
