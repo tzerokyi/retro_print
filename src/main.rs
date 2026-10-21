@@ -326,6 +326,7 @@ impl RetroPrintApp {
             .show(ui, |ui| {
                 for (index, look) in LOOKS.iter().enumerate() {
                     let selected = self.settings.mode == look.mode
+                        && self.settings.pixel_size == look.pixel_size
                         && self.settings.grain_size == look.grain_size
                         && self.settings.grain_amount == look.grain_amount
                         && self.settings.contrast == look.contrast
@@ -354,7 +355,10 @@ impl RetroPrintApp {
             for (index, (mode, label)) in [
                 (StippleMode::Organic, "Organic"),
                 (StippleMode::Fine, "Fine Stipple"),
+                (StippleMode::Threshold, "Threshold"),
+                (StippleMode::Bayer4, "Bayer 4×4"),
                 (StippleMode::Bayer, "Bayer 8×8"),
+                (StippleMode::FloydSteinberg, "Floyd–Steinberg"),
                 (StippleMode::Atkinson, "Atkinson"),
             ].into_iter().enumerate() {
                 let selected = self.settings.mode == mode;
@@ -376,17 +380,30 @@ impl RetroPrintApp {
         });
         let mode_hint = match self.settings.mode {
             StippleMode::Organic => "Soft, clustered analog grain",
-            StippleMode::Fine => "Clean dots · sharper edges and detail",
-            StippleMode::Bayer => "Ordered 8×8 halftone grid",
-            StippleMode::Atkinson => "Error-diffused retro pixel print",
+            StippleMode::Fine => "Fine blue-noise dots and sharp details",
+            StippleMode::Threshold => "Hard black-and-white shapes",
+            StippleMode::Bayer4 => "Tight 4×4 ordered pattern",
+            StippleMode::Bayer => "Detailed 8×8 ordered pattern",
+            StippleMode::FloydSteinberg => "Continuous-tone error diffusion",
+            StippleMode::Atkinson => "High-contrast retro error diffusion",
         };
         ui.label(RichText::new(mode_hint).size(10.0).color(view::SUBTLE));
         ui.add_space(12.0);
-        changed |= view::slider(ui, "Grain Size", &mut self.settings.grain_size);
-        changed |= view::slider(ui, "Grain Amount", &mut self.settings.grain_amount);
+        let pixel_mode = !matches!(self.settings.mode, StippleMode::Organic | StippleMode::Fine);
+        if pixel_mode {
+            changed |= view::slider(ui, "Pixel Size", &mut self.settings.pixel_size);
+            if self.settings.mode != StippleMode::Threshold {
+                changed |= view::slider(ui, "Dither Strength", &mut self.settings.grain_amount);
+            }
+        } else {
+            changed |= view::slider(ui, "Grain Size", &mut self.settings.grain_size);
+            changed |= view::slider(ui, "Grain Amount", &mut self.settings.grain_amount);
+        }
         changed |= view::slider(ui, "Contrast", &mut self.settings.contrast);
         changed |= view::slider(ui, "Threshold", &mut self.settings.threshold);
-        changed |= view::slider(ui, "Irregularity", &mut self.settings.irregularity);
+        if self.settings.mode != StippleMode::Threshold {
+            changed |= view::slider(ui, "Irregularity", &mut self.settings.irregularity);
+        }
 
         view::separator(ui);
         view::section(ui, "I N K   &   P A P E R", view::Icon::Palette);
