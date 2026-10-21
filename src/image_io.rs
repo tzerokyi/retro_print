@@ -183,7 +183,11 @@ pub fn write_svg<W: Write>(mut writer: W, image: &RgbaImage) -> io::Result<()> {
                 continue;
             }
             while previous.peek().is_some_and(|p| p.x < start) {
-                append_svg_run(&mut writer, &mut grouped, previous.next().expect("run exists"))?;
+                append_svg_run(
+                    &mut writer,
+                    &mut grouped,
+                    previous.next().expect("run exists"),
+                )?;
             }
             if previous
                 .peek()

@@ -110,7 +110,13 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
     if width == 0 || height == 0 {
         return source.clone();
     }
-    let cell = if matches!(s.mode, StippleMode::Halftone | StippleMode::LineScreen | StippleMode::ClusteredDot | StippleMode::Crosshatch) {
+    let cell = if matches!(
+        s.mode,
+        StippleMode::Halftone
+            | StippleMode::LineScreen
+            | StippleMode::ClusteredDot
+            | StippleMode::Crosshatch
+    ) {
         pixel_cell_size(source, s).max(4)
     } else {
         pixel_cell_size(source, s)
@@ -226,7 +232,8 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
             for y in 0..gh {
                 for x in 0..gw {
                     let i = y * gw + x;
-                    let rank = (noise[((y + oy) & 127) * 128 + ((x + ox) & 127)] as f32 + 0.5) / 256.0;
+                    let rank =
+                        (noise[((y + oy) & 127) * 128 + ((x + ox) & 127)] as f32 + 0.5) / 256.0;
                     let cutoff = 0.5 + (rank - 0.5) * strength;
                     mask[i] = active[i] && tones[i] >= cutoff;
                 }
@@ -254,24 +261,44 @@ fn render_pixel_dither(source: &RgbaImage, s: &Settings) -> RgbaImage {
             ];
 
             const JJN: &[(isize, usize, f32)] = &[
-                (1, 0, 7.0 / 48.0), (2, 0, 5.0 / 48.0),
-                (-2, 1, 3.0 / 48.0), (-1, 1, 5.0 / 48.0), (0, 1, 7.0 / 48.0),
-                (1, 1, 5.0 / 48.0), (2, 1, 3.0 / 48.0),
-                (-2, 2, 1.0 / 48.0), (-1, 2, 3.0 / 48.0), (0, 2, 5.0 / 48.0),
-                (1, 2, 3.0 / 48.0), (2, 2, 1.0 / 48.0),
+                (1, 0, 7.0 / 48.0),
+                (2, 0, 5.0 / 48.0),
+                (-2, 1, 3.0 / 48.0),
+                (-1, 1, 5.0 / 48.0),
+                (0, 1, 7.0 / 48.0),
+                (1, 1, 5.0 / 48.0),
+                (2, 1, 3.0 / 48.0),
+                (-2, 2, 1.0 / 48.0),
+                (-1, 2, 3.0 / 48.0),
+                (0, 2, 5.0 / 48.0),
+                (1, 2, 3.0 / 48.0),
+                (2, 2, 1.0 / 48.0),
             ];
             const STUCKI: &[(isize, usize, f32)] = &[
-                (1, 0, 8.0 / 42.0), (2, 0, 4.0 / 42.0),
-                (-2, 1, 2.0 / 42.0), (-1, 1, 4.0 / 42.0), (0, 1, 8.0 / 42.0),
-                (1, 1, 4.0 / 42.0), (2, 1, 2.0 / 42.0),
-                (-2, 2, 1.0 / 42.0), (-1, 2, 2.0 / 42.0), (0, 2, 4.0 / 42.0),
-                (1, 2, 2.0 / 42.0), (2, 2, 1.0 / 42.0),
+                (1, 0, 8.0 / 42.0),
+                (2, 0, 4.0 / 42.0),
+                (-2, 1, 2.0 / 42.0),
+                (-1, 1, 4.0 / 42.0),
+                (0, 1, 8.0 / 42.0),
+                (1, 1, 4.0 / 42.0),
+                (2, 1, 2.0 / 42.0),
+                (-2, 2, 1.0 / 42.0),
+                (-1, 2, 2.0 / 42.0),
+                (0, 2, 4.0 / 42.0),
+                (1, 2, 2.0 / 42.0),
+                (2, 2, 1.0 / 42.0),
             ];
             const SIERRA: &[(isize, usize, f32)] = &[
-                (1, 0, 5.0 / 32.0), (2, 0, 3.0 / 32.0),
-                (-2, 1, 2.0 / 32.0), (-1, 1, 4.0 / 32.0), (0, 1, 5.0 / 32.0),
-                (1, 1, 4.0 / 32.0), (2, 1, 2.0 / 32.0),
-                (-1, 2, 2.0 / 32.0), (0, 2, 3.0 / 32.0), (1, 2, 2.0 / 32.0),
+                (1, 0, 5.0 / 32.0),
+                (2, 0, 3.0 / 32.0),
+                (-2, 1, 2.0 / 32.0),
+                (-1, 1, 4.0 / 32.0),
+                (0, 1, 5.0 / 32.0),
+                (1, 1, 4.0 / 32.0),
+                (2, 1, 2.0 / 32.0),
+                (-1, 2, 2.0 / 32.0),
+                (0, 2, 3.0 / 32.0),
+                (1, 2, 2.0 / 32.0),
             ];
             let neighbors = match s.mode {
                 StippleMode::FloydSteinberg => FLOYD,
@@ -891,7 +918,12 @@ mod dithering_tests {
         let mut s = defaults();
         s.pixel_size = 70.0;
         let mut modes = Vec::new();
-        for mode in [StippleMode::Halftone, StippleMode::LineScreen, StippleMode::ClusteredDot, StippleMode::Crosshatch] {
+        for mode in [
+            StippleMode::Halftone,
+            StippleMode::LineScreen,
+            StippleMode::ClusteredDot,
+            StippleMode::Crosshatch,
+        ] {
             s.mode = mode;
             let result = render(&input, &s);
             assert_eq!(result.dimensions(), input.dimensions());
@@ -988,20 +1020,35 @@ mod advanced_dither_tests {
         settings.contrast = 50.0;
         settings.irregularity = 0.0;
         let modes = [
-            StippleMode::JarvisJudiceNinke, StippleMode::Stucki, StippleMode::Sierra,
-            StippleMode::BlueNoise, StippleMode::ClusteredDot, StippleMode::Crosshatch,
+            StippleMode::JarvisJudiceNinke,
+            StippleMode::Stucki,
+            StippleMode::Sierra,
+            StippleMode::BlueNoise,
+            StippleMode::ClusteredDot,
+            StippleMode::Crosshatch,
         ];
-        let images: Vec<_> = modes.iter().map(|&mode| {
-            settings.mode = mode;
-            let result = render(&source, &settings);
-            assert_eq!(result, render(&source, &settings));
-            assert_eq!(result.dimensions(), source.dimensions());
-            assert!(result.pixels().all(|p| p.0[..3] == settings.ink || p.0[..3] == settings.paper));
-            result
-        }).collect();
+        let images: Vec<_> = modes
+            .iter()
+            .map(|&mode| {
+                settings.mode = mode;
+                let result = render(&source, &settings);
+                assert_eq!(result, render(&source, &settings));
+                assert_eq!(result.dimensions(), source.dimensions());
+                assert!(
+                    result
+                        .pixels()
+                        .all(|p| p.0[..3] == settings.ink || p.0[..3] == settings.paper)
+                );
+                result
+            })
+            .collect();
         for i in 0..images.len() {
             for j in (i + 1)..images.len() {
-                assert_ne!(images[i], images[j], "{:?} and {:?} match", modes[i], modes[j]);
+                assert_ne!(
+                    images[i], images[j],
+                    "{:?} and {:?} match",
+                    modes[i], modes[j]
+                );
             }
         }
     }
@@ -1009,14 +1056,30 @@ mod advanced_dither_tests {
     #[test]
     fn advanced_modes_preserve_alpha_and_cutouts() {
         let source = RgbaImage::from_fn(71, 53, |x, y| {
-            let alpha = if x == 0 { 0 } else if y % 3 == 0 { 81 } else { 255 };
-            let shade = if x < 15 { 0 } else if x > 55 { 255 } else { 127 };
+            let alpha = if x == 0 {
+                0
+            } else if y % 3 == 0 {
+                81
+            } else {
+                255
+            };
+            let shade = if x < 15 {
+                0
+            } else if x > 55 {
+                255
+            } else {
+                127
+            };
             Rgba([shade, shade, shade, alpha])
         });
         let mut s = defaults();
         for mode in [
-            StippleMode::JarvisJudiceNinke, StippleMode::Stucki, StippleMode::Sierra,
-            StippleMode::BlueNoise, StippleMode::ClusteredDot, StippleMode::Crosshatch
+            StippleMode::JarvisJudiceNinke,
+            StippleMode::Stucki,
+            StippleMode::Sierra,
+            StippleMode::BlueNoise,
+            StippleMode::ClusteredDot,
+            StippleMode::Crosshatch,
         ] {
             s.mode = mode;
             s.pixel_size = 0.0;
@@ -1034,11 +1097,19 @@ mod advanced_dither_tests {
 
     #[test]
     fn screened_modes_follow_tone_order() {
-        for renderer in [clustered_dot_at as fn(u32,u32,u32,f32)->bool, crosshatch_at] {
-            let densities: Vec<_> = [0.08, 0.25, 0.50, 0.75, 0.95].iter().map(|&tone| {
-                (0..256).flat_map(|y| (0..256).map(move |x| (x,y)))
-                    .filter(|&(x,y)| renderer(x,y,8,tone)).count()
-            }).collect();
+        for renderer in [
+            clustered_dot_at as fn(u32, u32, u32, f32) -> bool,
+            crosshatch_at,
+        ] {
+            let densities: Vec<_> = [0.08, 0.25, 0.50, 0.75, 0.95]
+                .iter()
+                .map(|&tone| {
+                    (0..256)
+                        .flat_map(|y| (0..256).map(move |x| (x, y)))
+                        .filter(|&(x, y)| renderer(x, y, 8, tone))
+                        .count()
+                })
+                .collect();
             assert!(densities.windows(2).all(|v| v[0] < v[1]), "{densities:?}");
         }
     }

@@ -424,7 +424,10 @@ impl RetroPrintApp {
                         .add_sized(
                             [mode_width, 32.0],
                             egui::Button::new(RichText::new(label).size(
-                                if matches!(mode, StippleMode::FloydSteinberg | StippleMode::JarvisJudiceNinke) {
+                                if matches!(
+                                    mode,
+                                    StippleMode::FloydSteinberg | StippleMode::JarvisJudiceNinke
+                                ) {
                                     9.5
                                 } else {
                                     11.5
@@ -467,7 +470,11 @@ impl RetroPrintApp {
             changed |= view::slider(ui, "Pixel Size", &mut self.settings.pixel_size);
             if !matches!(
                 self.settings.mode,
-                StippleMode::Threshold | StippleMode::Halftone | StippleMode::LineScreen | StippleMode::ClusteredDot | StippleMode::Crosshatch
+                StippleMode::Threshold
+                    | StippleMode::Halftone
+                    | StippleMode::LineScreen
+                    | StippleMode::ClusteredDot
+                    | StippleMode::Crosshatch
             ) {
                 changed |= view::slider(ui, "Dither Strength", &mut self.settings.grain_amount);
             }

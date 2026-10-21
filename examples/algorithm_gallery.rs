@@ -76,7 +76,11 @@ fn make_gallery(
     let prefix = if presets { "recipe" } else { "engine" };
     let (w, h) = source.dimensions();
     let count = if presets { LOOKS.len() } else { MODES.len() };
-    let mut sheet = RgbaImage::from_pixel(w * 3, h * count.div_ceil(3) as u32, Rgba([246, 241, 228, 255]));
+    let mut sheet = RgbaImage::from_pixel(
+        w * 3,
+        h * count.div_ceil(3) as u32,
+        Rgba([246, 241, 228, 255]),
+    );
     let mut labels = Vec::new();
     let mut metrics = String::from("mode,ink_pixels,visible_pixels,ink_percent\n");
     for index in 0..count {
@@ -99,8 +103,15 @@ fn make_gallery(
         );
         result.save(folder.join(format!("{prefix}-{:02}-{label}.png", index + 1)))?;
         let visible = result.pixels().filter(|p| p[3] != 0).count();
-        let ink = result.pixels().filter(|p| p[3] != 0 && p.0[..3] == settings.ink).count();
-        let coverage = if visible == 0 { 0.0 } else { ink as f64 * 100.0 / visible as f64 };
+        let ink = result
+            .pixels()
+            .filter(|p| p[3] != 0 && p.0[..3] == settings.ink)
+            .count();
+        let coverage = if visible == 0 {
+            0.0
+        } else {
+            ink as f64 * 100.0 / visible as f64
+        };
         metrics.push_str(&format!("{label},{ink},{visible},{coverage:.4}\n"));
         labels.push(label);
     }
