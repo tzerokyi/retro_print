@@ -7,7 +7,7 @@ use std::{error::Error, fs, path::PathBuf};
 
 use effect::{Settings, StippleMode, render};
 use image::{Rgba, RgbaImage, imageops};
-use presets::{LOOKS, apply_look, defaults};
+use presets::{LOOKS, apply_look, defaults, matching_look};
 
 const MODES: [(&str, StippleMode); 15] = [
     ("organic", StippleMode::Organic),
@@ -88,6 +88,10 @@ fn make_gallery(
         let label = if presets {
             let recipe = LOOKS[index];
             apply_look(&mut settings, recipe);
+            assert_eq!(
+                matching_look(&settings).map(|current| current.label),
+                Some(recipe.label)
+            );
             recipe.label.to_ascii_lowercase().replace(' ', "-")
         } else {
             settings.mode = MODES[index].1;
