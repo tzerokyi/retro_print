@@ -507,6 +507,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn shared_theme_disables_widget_and_window_outlines() {
+        let ctx = egui::Context::default();
+        apply_theme(&ctx);
+        let visuals = &ctx.style().visuals;
+        assert_eq!(visuals.window_stroke, Stroke::NONE);
+        for widget in [
+            &visuals.widgets.inactive,
+            &visuals.widgets.hovered,
+            &visuals.widgets.active,
+            &visuals.widgets.open,
+            &visuals.widgets.noninteractive,
+        ] {
+            assert_eq!(widget.bg_stroke, Stroke::NONE);
+            assert_eq!(widget.corner_radius, egui::CornerRadius::same(CAPSULE_RADIUS));
+        }
+    }
+
+    #[test]
     fn error_shake_decays_and_stops() {
         assert_eq!(shake_offset(-0.1), 0.0);
         assert_eq!(shake_offset(0.0), 0.0);
