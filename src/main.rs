@@ -468,22 +468,32 @@ impl RetroPrintApp {
         view::separator(ui);
         view::section(ui, "I N K   &   P A P E R", view::Icon::Palette);
         let swatch_width = (ui.available_width() - 10.0) * 0.5;
+        let mut invalid_hex = false;
         ui.horizontal(|ui| {
-            changed |= color_selector(
+            let ink = color_selector(
                 ui,
                 "Ink Color",
                 &mut self.settings.ink,
                 &mut self.ink_hex,
                 swatch_width,
             );
-            changed |= color_selector(
+            let paper = color_selector(
                 ui,
                 "Paper Color",
                 &mut self.settings.paper,
                 &mut self.paper_hex,
                 swatch_width,
             );
+            changed |= ink.0 || paper.0;
+            invalid_hex = ink.1 || paper.1;
         });
+        if invalid_hex {
+            self.status = "Invalid HEX color".into();
+            self.is_error = true;
+            self.feedback_key.clear();
+        } else if changed && self.is_error {
+            self.is_error = false;
+        }
         ui.add_space(15.0);
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
@@ -643,8 +653,9 @@ fn color_selector(
     rgb: &mut [u8; 3],
     hex: &mut String,
     width: f32,
-) -> bool {
+) -> (bool, bool) {
     let mut changed = false;
+    let mut rejected = false;
     ui.vertical(|ui| {
         ui.label(RichText::new(label).size(11.0).color(view::TEXT));
         let response = ui
@@ -681,9 +692,10 @@ fn color_selector(
         }
         if input.lost_focus() && parse_hex_color(hex).is_none() {
             *hex = format_hex_color(*rgb);
+            rejected = true;
         }
     });
-    changed
+    (changed, rejected)
 }
 
 impl eframe::App for RetroPrintApp {
