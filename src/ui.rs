@@ -510,7 +510,8 @@ mod tests {
     fn shared_theme_disables_widget_and_window_outlines() {
         let ctx = egui::Context::default();
         apply_theme(&ctx);
-        let visuals = &ctx.style().visuals;
+        let style = ctx.style_of(egui::Theme::Dark);
+        let visuals = &style.visuals;
         assert_eq!(visuals.window_stroke, Stroke::NONE);
         for widget in [
             &visuals.widgets.inactive,
