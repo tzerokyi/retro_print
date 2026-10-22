@@ -254,6 +254,21 @@ pub const LOOKS: [Look; 15] = [
     },
 ];
 
+pub fn matching_look(settings: &Settings) -> Option<&'static Look> {
+    LOOKS.iter().find(|look| {
+        settings.mode == look.mode
+            && settings.blur == look.blur
+            && settings.pixel_size == look.pixel_size
+            && settings.grain_size == look.grain_size
+            && settings.grain_amount == look.grain_amount
+            && settings.contrast == look.contrast
+            && settings.threshold == look.threshold
+            && settings.irregularity == look.irregularity
+            && settings.ink == PALETTES[look.palette].ink
+            && settings.paper == PALETTES[look.palette].paper
+    })
+}
+
 pub fn apply_look(settings: &mut Settings, look: Look) {
     settings.mode = look.mode;
     settings.grain_size = look.grain_size;
@@ -270,6 +285,17 @@ pub fn apply_look(settings: &mut Settings, look: Look) {
 #[cfg(test)]
 mod look_tests {
     use super::*;
+
+    #[test]
+    fn recipe_selection_tracks_manual_changes() {
+        for look in LOOKS {
+            let mut settings = defaults();
+            apply_look(&mut settings, look);
+            assert_eq!(matching_look(&settings).map(|current| current.label), Some(look.label));
+            settings.threshold += 1.0;
+            assert!(matching_look(&settings).is_none());
+        }
+    }
 
     #[test]
     fn each_recipe_has_a_distinct_renderer() {
