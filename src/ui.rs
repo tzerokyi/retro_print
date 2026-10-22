@@ -37,6 +37,16 @@ pub fn capsule(label: &str) -> egui::Button<'static> {
         .stroke(Stroke::NONE)
 }
 
+pub fn menu_option(label: &str, selected: bool) -> egui::Button<'static> {
+    capsule(label)
+        .selected(selected)
+        .fill(if selected {
+            Color32::from_rgb(87, 60, 45)
+        } else {
+            Color32::from_rgb(38, 43, 49)
+        })
+}
+
 pub fn choice_popup(
     ui: &mut egui::Ui,
     which: Icon,
