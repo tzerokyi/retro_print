@@ -236,10 +236,10 @@ fn matte_slider(ui: &mut egui::Ui, value: &mut f32) -> bool {
     }
     if response.has_focus() {
         let delta = ui.input(|input| {
-            let increase = input.key_pressed(egui::Key::ArrowRight)
-                || input.key_pressed(egui::Key::ArrowUp);
-            let decrease = input.key_pressed(egui::Key::ArrowLeft)
-                || input.key_pressed(egui::Key::ArrowDown);
+            let increase =
+                input.key_pressed(egui::Key::ArrowRight) || input.key_pressed(egui::Key::ArrowUp);
+            let decrease =
+                input.key_pressed(egui::Key::ArrowLeft) || input.key_pressed(egui::Key::ArrowDown);
             (increase as i32 - decrease as i32) as f32
         });
         if delta != 0.0 {
@@ -260,7 +260,11 @@ fn matte_slider(ui: &mut egui::Ui, value: &mut f32) -> bool {
     }
     ui.painter().circle_filled(
         pos2(x, track.center().y),
-        if response.hovered() || response.dragged() { 8.0 } else { 7.0 },
+        if response.hovered() || response.dragged() {
+            8.0
+        } else {
+            7.0
+        },
         if response.hovered() || response.dragged() {
             ACCENT
         } else {
