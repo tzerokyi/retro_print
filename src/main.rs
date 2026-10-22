@@ -241,7 +241,7 @@ impl RetroPrintApp {
                 Err(err) => {
                     self.status = format!("Export failed: {err}");
                     self.is_error = true;
-                self.feedback_key.clear();
+                    self.feedback_key.clear();
                 }
             }
         }
@@ -276,7 +276,7 @@ impl RetroPrintApp {
         if self.source_path.as_deref() == Some(output_path.as_path()) {
             self.status = "Choose a new filename: overwriting the source is disabled".into();
             self.is_error = true;
-                self.feedback_key.clear();
+            self.feedback_key.clear();
             return;
         }
 
@@ -334,9 +334,7 @@ impl RetroPrintApp {
                     .clicked();
                 if self.source.is_some()
                     && ui
-                        .add(
-                            view::capsule("Compare").selected(self.wipe_view),
-                        )
+                        .add(view::capsule("Compare").selected(self.wipe_view))
                         .on_hover_text("Wipe Compare")
                         .clicked()
                 {
@@ -414,10 +412,7 @@ impl RetroPrintApp {
                 {
                     let selected = self.settings.mode == mode;
                     if ui
-                        .add_sized(
-                            [mode_width, 32.0],
-                            view::capsule(label).selected(selected),
-                        )
+                        .add_sized([mode_width, 32.0], view::capsule(label).selected(selected))
                         .clicked()
                         && !selected
                     {
@@ -587,10 +582,7 @@ impl RetroPrintApp {
     }
 
     fn status_visible(&self) -> bool {
-        self.is_error
-            || self.exporting
-            || self.preview_pending
-            || self.status.starts_with("Saved ")
+        self.is_error || self.exporting || self.preview_pending || self.status.starts_with("Saved ")
     }
 
     fn footer(&self, ui: &mut egui::Ui) {
@@ -619,11 +611,19 @@ impl RetroPrintApp {
                         view::Icon::Success
                     },
                     15.0,
-                    if self.is_error { view::ERROR } else { view::ACCENT },
+                    if self.is_error {
+                        view::ERROR
+                    } else {
+                        view::ACCENT
+                    },
                 ));
                 ui.label(
                     RichText::new(&self.status)
-                        .color(if self.is_error { view::ERROR } else { view::SUBTLE })
+                        .color(if self.is_error {
+                            view::ERROR
+                        } else {
+                            view::SUBTLE
+                        })
                         .size(12.0),
                 );
             }
@@ -661,8 +661,7 @@ fn color_selector(
         let response = ui
             .add_sized(
                 [width, 45.0],
-                view::capsule("")
-                    .fill(Color32::from_rgb(rgb[0], rgb[1], rgb[2])),
+                view::capsule("").fill(Color32::from_rgb(rgb[0], rgb[1], rgb[2])),
             )
             .on_hover_text(label);
         egui::Popup::menu(&response).show(|ui| {
@@ -727,9 +726,7 @@ impl eframe::App for RetroPrintApp {
         let mut export_svg = false;
         egui::Panel::top("retroprint-toolbar")
             .exact_size(72.0)
-            .frame(
-                view::surface_frame(view::PANEL),
-            )
+            .frame(view::surface_frame(view::PANEL))
             .show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(12.0);
@@ -738,13 +735,10 @@ impl eframe::App for RetroPrintApp {
             });
 
         if self.source.is_some() || self.status_visible() {
-        egui::Panel::bottom("retroprint-status")
-            .exact_size(41.0)
-            .frame(
-                view::surface_frame(view::PANEL)
-                    .inner_margin(egui::Margin::symmetric(0, 7)),
-            )
-            .show(ui, |ui| self.footer(ui));
+            egui::Panel::bottom("retroprint-status")
+                .exact_size(41.0)
+                .frame(view::surface_frame(view::PANEL).inner_margin(egui::Margin::symmetric(0, 7)))
+                .show(ui, |ui| self.footer(ui));
         }
 
         let sidebar_width = if ui.available_width() < 1040.0 {
@@ -753,29 +747,26 @@ impl eframe::App for RetroPrintApp {
             330.0
         };
         if self.source.is_some() {
-        egui::Panel::left("retroprint-inspector")
-            .exact_size(sidebar_width)
-            .resizable(false)
-            .frame(
-                view::surface_frame(view::PANEL)
-                    .inner_margin(egui::Margin {
-                        left: 20,
-                        right: 5,
-                        top: 16,
-                        bottom: 16,
-                    }),
-            )
-            .show(ui, |ui| {
-                egui::ScrollArea::vertical()
-                    .id_salt("retroprint-inspector-scroll")
-                    .auto_shrink([false, false])
-                    .scroll_bar_visibility(
-                        egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
-                    )
-                    .show(ui, |ui| {
-                        changed = self.inspector(ui);
-                    });
-            });
+            egui::Panel::left("retroprint-inspector")
+                .exact_size(sidebar_width)
+                .resizable(false)
+                .frame(view::surface_frame(view::PANEL).inner_margin(egui::Margin {
+                    left: 20,
+                    right: 5,
+                    top: 16,
+                    bottom: 16,
+                }))
+                .show(ui, |ui| {
+                    egui::ScrollArea::vertical()
+                        .id_salt("retroprint-inspector-scroll")
+                        .auto_shrink([false, false])
+                        .scroll_bar_visibility(
+                            egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
+                        )
+                        .show(ui, |ui| {
+                            changed = self.inspector(ui);
+                        });
+                });
         }
 
         egui::CentralPanel::default()
@@ -813,9 +804,9 @@ impl eframe::App for RetroPrintApp {
             ctx.request_repaint_after(std::time::Duration::from_millis(40));
         }
         if self.is_error
-            && self.feedback_started.is_some_and(|started| {
-                ctx.input(|input| input.time) - started < 0.5
-            })
+            && self
+                .feedback_started
+                .is_some_and(|started| ctx.input(|input| input.time) - started < 0.5)
         {
             ctx.request_repaint_after(std::time::Duration::from_millis(16));
         }

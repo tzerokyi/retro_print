@@ -1,7 +1,6 @@
-
 use eframe::egui::{
-    self, Align2, Color32, FontId, Painter, Rect, RichText, Sense, Stroke,
-    TextureHandle, Vec2, pos2, vec2,
+    self, Align2, Color32, FontId, Painter, Rect, RichText, Sense, Stroke, TextureHandle, Vec2,
+    pos2, vec2,
 };
 
 pub const BACKGROUND: Color32 = Color32::from_rgb(17, 20, 24);
@@ -61,7 +60,6 @@ pub fn matte_card(painter: &Painter, rect: Rect, fill: Color32) {
     );
     painter.rect_filled(rect, CARD_RADIUS, fill);
 }
-
 
 #[derive(Clone, Copy)]
 pub enum Icon {
@@ -403,7 +401,11 @@ pub fn canvas(
         p.text(
             middle + vec2(0.0, 13.0),
             Align2::CENTER_CENTER,
-            if hovering_file { "Import image" } else { "Open image" },
+            if hovering_file {
+                "Import image"
+            } else {
+                "Open image"
+            },
             FontId::proportional(19.0),
             TEXT,
         );
