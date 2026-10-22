@@ -18,8 +18,26 @@ use crate::ui as view;
 use crate::{
     effect::{Settings, StippleMode, render},
     image_io::{load, load_bytes, make_preview, save_png, save_svg},
-    presets::{LOOKS, PALETTES, apply_look, defaults},
+    presets::{LOOKS, PALETTES, apply_look, defaults, matching_look},
 };
+
+const TEXTURE_MODES: [(StippleMode, &str); 15] = [
+    (StippleMode::Organic, "Organic"),
+    (StippleMode::Fine, "Fine Stipple"),
+    (StippleMode::Threshold, "Threshold"),
+    (StippleMode::Bayer4, "Bayer 4×4"),
+    (StippleMode::Bayer, "Bayer 8×8"),
+    (StippleMode::Halftone, "Halftone Dots"),
+    (StippleMode::LineScreen, "Line Screen"),
+    (StippleMode::FloydSteinberg, "Floyd–Steinberg"),
+    (StippleMode::Atkinson, "Atkinson"),
+    (StippleMode::JarvisJudiceNinke, "Jarvis–Judice–Ninke"),
+    (StippleMode::Stucki, "Stucki"),
+    (StippleMode::Sierra, "Sierra"),
+    (StippleMode::BlueNoise, "Blue Noise"),
+    (StippleMode::ClusteredDot, "Clustered Dots"),
+    (StippleMode::Crosshatch, "Crosshatch"),
+];
 
 struct PreviewRequest {
     revision: u64,
@@ -353,83 +371,65 @@ impl RetroPrintApp {
 
     fn inspector(&mut self, ui: &mut egui::Ui) -> bool {
         let mut changed = false;
-        ui.add_space(10.0);
-        view::section(ui, "P R I N T   C O N T R O L S", view::Icon::Controls);
-
-        let recipe_columns = if ui.available_width() >= 320.0 { 3 } else { 2 };
-        let recipe_width =
-            (ui.available_width() - (recipe_columns - 1) as f32 * 7.0) / recipe_columns as f32;
-        egui::Grid::new("print_recipes")
-            .num_columns(recipe_columns)
-            .spacing([7.0, 7.0])
-            .show(ui, |ui| {
-                for (index, look) in LOOKS.iter().enumerate() {
-                    let selected = self.settings.mode == look.mode
-                        && self.settings.blur == look.blur
-                        && self.settings.pixel_size == look.pixel_size
-                        && self.settings.grain_size == look.grain_size
-                        && self.settings.grain_amount == look.grain_amount
-                        && self.settings.contrast == look.contrast
-                        && self.settings.threshold == look.threshold
-                        && self.settings.irregularity == look.irregularity
-                        && self.settings.ink == PALETTES[look.palette].ink
-                        && self.settings.paper == PALETTES[look.palette].paper;
+        ui.add_space(8.0);
+        view::section(ui, "Print Controls", view::Icon::Controls);
+        let current_recipe = matching_look(&self.settings)
+            .map(|look| look.label)
+            .unwrap_or("Custom");
+        view::choice_popup(
+            ui,
+            view::Icon::Palette,
+            current_recipe,
+            "Print recipes",
+            |ui| {
+                for look in LOOKS {
+                    let selected = matching_look(&self.settings)
+                        .is_some_and(|current| current.label == look.label);
                     if ui
                         .add_sized(
-                            [recipe_width.max(60.0), 34.0],
+                            [ui.available_width(), 32.0],
                             view::capsule(look.label).selected(selected),
                         )
                         .clicked()
                     {
-                        apply_look(&mut self.settings, *look);
+                        apply_look(&mut self.settings, look);
                         self.sync_hex_fields();
                         changed = true;
-                    }
-                    if (index + 1) % recipe_columns == 0 {
-                        ui.end_row();
+                        ui.close();
                     }
                 }
-            });
-        ui.add_space(14.0);
-        let mode_width = (ui.available_width() - 7.0) * 0.5;
-        egui::Grid::new("texture_modes")
-            .num_columns(2)
-            .spacing([7.0, 7.0])
-            .show(ui, |ui| {
-                for (index, (mode, label)) in [
-                    (StippleMode::Organic, "Organic"),
-                    (StippleMode::Fine, "Fine Stipple"),
-                    (StippleMode::Threshold, "Threshold"),
-                    (StippleMode::Bayer4, "Bayer 4×4"),
-                    (StippleMode::Bayer, "Bayer 8×8"),
-                    (StippleMode::Halftone, "Halftone Dots"),
-                    (StippleMode::LineScreen, "Line Screen"),
-                    (StippleMode::FloydSteinberg, "Floyd–Steinberg"),
-                    (StippleMode::Atkinson, "Atkinson"),
-                    (StippleMode::JarvisJudiceNinke, "Jarvis–Judice–Ninke"),
-                    (StippleMode::Stucki, "Stucki"),
-                    (StippleMode::Sierra, "Sierra"),
-                    (StippleMode::BlueNoise, "Blue Noise"),
-                    (StippleMode::ClusteredDot, "Clustered Dots"),
-                    (StippleMode::Crosshatch, "Crosshatch"),
-                ]
-                .into_iter()
-                .enumerate()
-                {
+            },
+        );
+        ui.add_space(10.0);
+        let current_mode = TEXTURE_MODES
+            .iter()
+            .find(|(mode, _)| *mode == self.settings.mode)
+            .map(|(_, label)| *label)
+            .unwrap_or("Texture");
+        view::choice_popup(
+            ui,
+            view::Icon::Controls,
+            current_mode,
+            "Dithering engine",
+            |ui| {
+                for (mode, label) in TEXTURE_MODES {
                     let selected = self.settings.mode == mode;
                     if ui
-                        .add_sized([mode_width, 32.0], view::capsule(label).selected(selected))
+                        .add_sized(
+                            [ui.available_width(), 32.0],
+                            view::capsule(label).selected(selected),
+                        )
                         .clicked()
-                        && !selected
                     {
-                        self.settings.mode = mode;
-                        changed = true;
-                    }
-                    if index % 2 == 1 {
-                        ui.end_row();
+                        if !selected {
+                            self.settings.mode = mode;
+                            changed = true;
+                        }
+                        ui.close();
                     }
                 }
-            });
+            },
+        );
         ui.add_space(16.0);
         let pixel_mode = !matches!(self.settings.mode, StippleMode::Organic | StippleMode::Fine);
         if pixel_mode {
