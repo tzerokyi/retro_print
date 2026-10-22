@@ -249,9 +249,15 @@ impl RetroPrintApp {
 
     fn export_dialog(&mut self, svg: bool) {
         if self.exporting {
+            self.status = "Export is already in progress".into();
+            self.is_error = true;
+            self.feedback_key.clear();
             return;
         }
         let Some(source) = self.source.as_ref() else {
+            self.status = "Open an image before exporting".into();
+            self.is_error = true;
+            self.feedback_key.clear();
             return;
         };
 
