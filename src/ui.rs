@@ -50,10 +50,12 @@ pub fn choice_popup(
             icon_button(which, current, TEXT),
         )
         .on_hover_text(name);
+    let width = response.rect.width();
     egui::Popup::menu(&response).show(|ui| {
-        ui.set_min_width(220.0);
+        ui.set_min_width(width);
+        ui.set_max_width(width);
         egui::ScrollArea::vertical()
-            .max_height(400.0)
+            .max_height(380.0)
             .auto_shrink([false, true])
             .show(ui, choices);
     });
