@@ -1,24 +1,68 @@
-//! View styling and geometry for the RetroPrint editor.
-//!
-//! UI geometry lives here; image processing and file operations do not.
 
 use eframe::egui::{
-    self, Align2, Color32, FontId, Painter, Rect, RichText, Sense, Stroke, StrokeKind,
+    self, Align2, Color32, FontId, Painter, Rect, RichText, Sense, Stroke,
     TextureHandle, Vec2, pos2, vec2,
 };
 
 pub const BACKGROUND: Color32 = Color32::from_rgb(17, 20, 24);
 pub const PANEL: Color32 = Color32::from_rgb(25, 29, 34);
 pub const SURFACE: Color32 = Color32::from_rgb(29, 34, 40);
-pub const BORDER: Color32 = Color32::from_rgb(58, 64, 72);
 pub const TEXT: Color32 = Color32::from_rgb(241, 234, 224);
 pub const SUBTLE: Color32 = Color32::from_rgb(157, 160, 166);
 pub const ACCENT: Color32 = Color32::from_rgb(240, 157, 96);
 pub const ERROR: Color32 = Color32::from_rgb(244, 121, 114);
 
-/// Licensed Lucide icons embedded at compile time; all controls use one icon language.
-/// The upstream SVGs are kept in `assets/icons`, with a white stroke so egui
-/// can tint them consistently across inactive, hovered, and accent states.
+pub const CAPSULE_RADIUS: u8 = 20;
+pub const CARD_RADIUS: u8 = 12;
+
+pub fn matte_shadow() -> egui::Shadow {
+    egui::Shadow {
+        offset: [0, 4],
+        blur: 16,
+        spread: 0,
+        color: Color32::from_black_alpha(75),
+    }
+}
+
+pub fn surface_frame(fill: Color32) -> egui::Frame {
+    egui::Frame::new()
+        .fill(fill)
+        .corner_radius(CARD_RADIUS)
+        .stroke(Stroke::NONE)
+        .shadow(matte_shadow())
+}
+
+pub fn capsule(label: &str) -> egui::Button<'static> {
+    egui::Button::new(label.to_owned())
+        .corner_radius(CAPSULE_RADIUS)
+        .stroke(Stroke::NONE)
+}
+
+pub fn circle_action(label: &str) -> egui::Button<'static> {
+    egui::Button::new(label.to_owned())
+        .corner_radius(CAPSULE_RADIUS)
+        .stroke(Stroke::NONE)
+        .min_size(vec2(30.0, 30.0))
+}
+
+pub fn shake_offset(elapsed: f64) -> f32 {
+    if !(0.0..0.50).contains(&elapsed) {
+        return 0.0;
+    }
+    let envelope = 1.0 - (elapsed / 0.50) as f32;
+    (elapsed as f32 * 85.0).sin() * 9.0 * envelope
+}
+
+pub fn matte_card(painter: &Painter, rect: Rect, fill: Color32) {
+    painter.rect_filled(
+        rect.translate(vec2(0.0, 4.0)).expand(2.0),
+        CARD_RADIUS + 2,
+        Color32::from_black_alpha(26),
+    );
+    painter.rect_filled(rect, CARD_RADIUS, fill);
+}
+
+
 #[derive(Clone, Copy)]
 pub enum Icon {
     Open,
@@ -89,31 +133,38 @@ pub fn icon(which: Icon, size: f32, color: Color32) -> egui::Image<'static> {
 
 pub fn icon_button(which: Icon, label: &str, color: Color32) -> egui::Button<'static> {
     egui::Button::image_and_text(icon(which, 16.0, color), label.to_string())
+        .corner_radius(CAPSULE_RADIUS)
+        .stroke(Stroke::NONE)
 }
 
 pub fn apply_theme(ctx: &egui::Context) {
     let mut visuals = egui::Visuals::dark();
     visuals.panel_fill = BACKGROUND;
     visuals.window_fill = PANEL;
-    visuals.window_stroke = Stroke::new(1.0, BORDER);
-    visuals.window_shadow = egui::Shadow {
-        offset: [0, 8],
-        blur: 24,
-        spread: 0,
-        color: Color32::from_black_alpha(110),
-    };
+    visuals.window_stroke = Stroke::NONE;
+    visuals.window_shadow = matte_shadow();
     visuals.override_text_color = Some(TEXT);
     visuals.selection.bg_fill = ACCENT.gamma_multiply(0.32);
-    visuals.selection.stroke.color = ACCENT;
+    visuals.selection.stroke = Stroke::NONE;
     visuals.widgets.inactive.weak_bg_fill = SURFACE;
     visuals.widgets.inactive.bg_fill = SURFACE;
-    visuals.widgets.inactive.bg_stroke = Stroke::new(1.0, BORDER);
+    visuals.widgets.inactive.bg_stroke = Stroke::NONE;
     visuals.widgets.hovered.weak_bg_fill = Color32::from_rgb(49, 54, 60);
     visuals.widgets.hovered.bg_fill = Color32::from_rgb(49, 54, 60);
     visuals.widgets.active.weak_bg_fill = ACCENT;
     visuals.widgets.active.bg_fill = ACCENT;
     visuals.widgets.active.fg_stroke.color = BACKGROUND;
-    visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, BORDER);
+    visuals.widgets.noninteractive.bg_stroke = Stroke::NONE;
+    for widget in [
+        &mut visuals.widgets.inactive,
+        &mut visuals.widgets.hovered,
+        &mut visuals.widgets.active,
+        &mut visuals.widgets.open,
+        &mut visuals.widgets.noninteractive,
+    ] {
+        widget.corner_radius = egui::CornerRadius::same(CAPSULE_RADIUS);
+        widget.bg_stroke = Stroke::NONE;
+    }
     visuals.slider_trailing_fill = true;
     ctx.set_visuals(visuals);
 
@@ -129,17 +180,14 @@ pub fn apply_theme(ctx: &egui::Context) {
 }
 
 pub fn separator(ui: &mut egui::Ui) {
-    ui.add_space(16.0);
-    ui.separator();
-    ui.add_space(16.0);
+    ui.add_space(24.0);
 }
 
 pub fn section(ui: &mut egui::Ui, text: &str, which: Icon) {
     ui.horizontal(|ui| {
-        ui.add(icon(which, 15.0, ACCENT));
-        ui.label(RichText::new(text).size(11.0).strong().color(TEXT));
+        ui.add(icon(which, 19.0, ACCENT)).on_hover_text(text);
     });
-    ui.add_space(12.0);
+    ui.add_space(14.0);
 }
 
 pub fn slider(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
@@ -149,8 +197,8 @@ pub fn slider(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             egui::Frame::new()
                 .fill(SURFACE)
-                .stroke(Stroke::new(1.0, BORDER))
-                .corner_radius(5)
+                .stroke(Stroke::NONE)
+                .corner_radius(9)
                 .inner_margin(egui::Margin::symmetric(9, 4))
                 .show(ui, |ui| {
                     changed |= ui
@@ -161,7 +209,6 @@ pub fn slider(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
                                 .fixed_decimals(0)
                                 .suffix("%"),
                         )
-                        .on_hover_text("Drag or double-click to type an exact value")
                         .changed();
                 });
         });
@@ -171,7 +218,6 @@ pub fn slider(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
             [ui.available_width(), 17.0],
             egui::Slider::new(value, 0.0..=100.0).show_value(false),
         )
-        .on_hover_text("Drag to adjust • double-click the value to enter a number")
         .changed();
     ui.add_space(8.0);
     changed
@@ -188,19 +234,12 @@ pub fn brand(ui: &mut egui::Ui) {
         }
     }
     ui.add_space(36.0);
-    ui.vertical(|ui| {
-        ui.label(
-            RichText::new("R E T R O P R I N T")
-                .color(TEXT)
-                .size(19.0)
-                .strong(),
-        );
-        ui.label(
-            RichText::new("I N K   &   G R A I N   S T U D I O")
-                .color(SUBTLE)
-                .size(9.0),
-        );
-    });
+    ui.label(
+        RichText::new("R E T R O P R I N T")
+            .color(TEXT)
+            .size(19.0)
+            .strong(),
+    );
 }
 
 pub fn fit_image(bounds: Rect, natural_size: Vec2) -> Rect {
@@ -232,13 +271,12 @@ fn card(
     zoom: f32,
     pan: Vec2,
 ) {
-    p.rect_filled(rect, 9, SURFACE);
-    p.rect_stroke(rect, 9, Stroke::new(1.0, BORDER), StrokeKind::Inside);
+    matte_card(p, rect, SURFACE);
     let content = Rect::from_min_max(
         rect.min + vec2(14.0, 14.0),
         pos2(rect.max.x - 14.0, rect.max.y - 43.0),
     );
-    p.rect_filled(content, 3, BACKGROUND);
+    p.rect_filled(content, CARD_RADIUS, BACKGROUND);
     if let Some(texture) = texture {
         let image = zoomed_image(content, texture.size_vec2(), zoom, pan);
         p.with_clip_rect(content).image(
@@ -265,8 +303,6 @@ fn card(
     );
 }
 
-/// Paint the preview workspace into its *entire* allocated rectangle.
-/// Returns true when the user clicks the empty import surface.
 pub struct CompareView<'a> {
     pub enabled: bool,
     pub fraction: &'a mut f32,
@@ -303,13 +339,6 @@ pub fn canvas(
 
     let margin = if bounds.width() < 670.0 { 15.0 } else { 26.0 };
     let inner = bounds.shrink2(vec2(margin, 18.0));
-    p.text(
-        inner.min,
-        Align2::LEFT_TOP,
-        "WORKSPACE",
-        FontId::proportional(17.0),
-        TEXT,
-    );
     if let Some(name) = filename {
         p.text(
             pos2(inner.max.x, inner.min.y + 5.0),
@@ -321,11 +350,11 @@ pub fn canvas(
     }
     if original.is_some() && inner.width() >= 480.0 {
         let y = inner.min.y - 1.0;
-        let x = inner.min.x + 155.0;
+        let x = inner.min.x;
         if ui
             .put(
                 Rect::from_min_size(pos2(x, y), vec2(30.0, 30.0)),
-                egui::Button::new("−").corner_radius(15),
+                circle_action("−"),
             )
             .on_hover_text("Zoom out")
             .clicked()
@@ -335,7 +364,7 @@ pub fn canvas(
         if ui
             .put(
                 Rect::from_min_size(pos2(x + 36.0, y), vec2(43.0, 30.0)),
-                egui::Button::new("Fit").corner_radius(15),
+                capsule("Fit"),
             )
             .on_hover_text("Fit to workspace")
             .clicked()
@@ -346,7 +375,7 @@ pub fn canvas(
         if ui
             .put(
                 Rect::from_min_size(pos2(x + 85.0, y), vec2(30.0, 30.0)),
-                egui::Button::new("+").corner_radius(15),
+                circle_action("+"),
             )
             .on_hover_text("Zoom in")
             .clicked()
@@ -367,38 +396,19 @@ pub fn canvas(
     );
 
     if original.is_none() {
-        p.rect_filled(cards, 7, PANEL);
-        p.rect_stroke(
-            cards,
-            7,
-            Stroke::new(1.5, if hovering_file { ACCENT } else { BORDER }),
-            StrokeKind::Inside,
-        );
+        matte_card(&p, cards, if hovering_file { SURFACE } else { PANEL });
         let middle = cards.center();
-        // Use the exact same vector asset as the rest of the app, not a
-        // separately hand-drawn pictogram in the large drop target.
         let icon_rect = Rect::from_center_size(middle - vec2(0.0, 58.0), vec2(45.0, 45.0));
         ui.put(icon_rect, icon(Icon::Drop, 45.0, ACCENT));
         p.text(
             middle + vec2(0.0, 13.0),
             Align2::CENTER_CENTER,
-            if hovering_file {
-                "Release to import"
-            } else {
-                "Drop an image here"
-            },
+            if hovering_file { "Import image" } else { "Open image" },
             FontId::proportional(19.0),
             TEXT,
         );
-        p.text(
-            middle + vec2(0.0, 43.0),
-            Align2::CENTER_CENTER,
-            "or click to browse  ·  PNG / JPG / WebP",
-            FontId::proportional(12.0),
-            SUBTLE,
-        );
     } else if let (Some(original), Some(printed), true) = (original, printed, compare.enabled) {
-        p.rect_filled(cards, 10, SURFACE);
+        matte_card(&p, cards, SURFACE);
         let viewport = cards.shrink2(vec2(16.0, 30.0));
         let image_rect = zoomed_image(viewport, original.size_vec2(), *compare.zoom, *compare.pan);
         if response.dragged()
@@ -475,13 +485,7 @@ pub fn canvas(
     }
 
     if hovering_file {
-        p.rect_filled(bounds, 0, ACCENT.gamma_multiply(0.11));
-        p.rect_stroke(
-            bounds.shrink(4.0),
-            8,
-            Stroke::new(2.0, ACCENT),
-            StrokeKind::Inside,
-        );
+        p.rect_filled(bounds.shrink(4.0), CARD_RADIUS, ACCENT.gamma_multiply(0.09));
     }
     let is_empty = original.is_none();
     response
@@ -499,6 +503,15 @@ pub fn canvas(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn error_shake_decays_and_stops() {
+        assert_eq!(shake_offset(-0.1), 0.0);
+        assert_eq!(shake_offset(0.0), 0.0);
+        assert!(shake_offset(0.02).abs() > 0.0);
+        assert_eq!(shake_offset(0.5), 0.0);
+        assert_eq!(shake_offset(1.0), 0.0);
+    }
 
     #[test]
     fn wipe_divider_is_clipped_to_visible_workspace() {
