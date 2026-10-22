@@ -220,6 +220,57 @@ pub fn section(ui: &mut egui::Ui, text: &str, which: Icon) {
     ui.add_space(14.0);
 }
 
+fn matte_slider(ui: &mut egui::Ui, value: &mut f32) -> bool {
+    let (rect, response) = ui.allocate_exact_size(
+        vec2(ui.available_width().max(20.0), 22.0),
+        Sense::click_and_drag(),
+    );
+    let mut changed = false;
+    if (response.clicked() || response.dragged())
+        && let Some(pointer) = response.interact_pointer_pos()
+    {
+        let next = ((pointer.x - rect.left()) / rect.width() * 100.0).clamp(0.0, 100.0);
+        changed |= (*value - next).abs() > f32::EPSILON;
+        *value = next;
+        response.request_focus();
+    }
+    if response.has_focus() {
+        let delta = ui.input(|input| {
+            let increase = input.key_pressed(egui::Key::ArrowRight)
+                || input.key_pressed(egui::Key::ArrowUp);
+            let decrease = input.key_pressed(egui::Key::ArrowLeft)
+                || input.key_pressed(egui::Key::ArrowDown);
+            (increase as i32 - decrease as i32) as f32
+        });
+        if delta != 0.0 {
+            *value = (*value + delta).clamp(0.0, 100.0);
+            changed = true;
+        }
+    }
+    let track = Rect::from_center_size(rect.center(), vec2(rect.width(), 6.0));
+    ui.painter().rect_filled(track, 3, SURFACE);
+    let fraction = (*value / 100.0).clamp(0.0, 1.0);
+    let x = track.left() + track.width() * fraction;
+    if x > track.left() {
+        ui.painter().rect_filled(
+            Rect::from_min_max(track.min, pos2(x, track.bottom())),
+            3,
+            ACCENT.gamma_multiply(0.47),
+        );
+    }
+    ui.painter().circle_filled(
+        pos2(x, track.center().y),
+        if response.hovered() || response.dragged() { 8.0 } else { 7.0 },
+        if response.hovered() || response.dragged() {
+            ACCENT
+        } else {
+            Color32::from_rgb(202, 145, 103)
+        },
+    );
+    response.on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
+    changed
+}
+
 pub fn slider(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
     let mut changed = false;
     ui.horizontal(|ui| {
@@ -243,12 +294,7 @@ pub fn slider(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
                 });
         });
     });
-    changed |= ui
-        .add_sized(
-            [ui.available_width(), 17.0],
-            egui::Slider::new(value, 0.0..=100.0).show_value(false),
-        )
-        .changed();
+    changed |= matte_slider(ui, value);
     ui.add_space(8.0);
     changed
 }
