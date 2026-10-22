@@ -291,7 +291,10 @@ mod look_tests {
         for look in LOOKS {
             let mut settings = defaults();
             apply_look(&mut settings, look);
-            assert_eq!(matching_look(&settings).map(|current| current.label), Some(look.label));
+            assert_eq!(
+                matching_look(&settings).map(|current| current.label),
+                Some(look.label)
+            );
             settings.threshold += 1.0;
             assert!(matching_look(&settings).is_none());
         }
