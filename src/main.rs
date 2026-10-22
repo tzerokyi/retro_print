@@ -58,6 +58,8 @@ struct RetroPrintApp {
     is_error: bool,
     wipe_view: bool,
     wipe_fraction: f32,
+    feedback_started: Option<f64>,
+    feedback_key: String,
     zoom: f32,
     pan: egui::Vec2,
 }
@@ -73,8 +75,6 @@ impl RetroPrintApp {
             .name("retroprint-preview".to_string())
             .spawn(move || {
                 while let Ok(mut job) = job_rx.recv() {
-                    // A slider may queue several jobs while the worker renders.
-                    // Render only the latest one waiting in the queue.
                     while let Ok(next) = job_rx.try_recv() {
                         job = next;
                     }
@@ -116,12 +116,12 @@ impl RetroPrintApp {
             is_error: false,
             wipe_view: false,
             wipe_fraction: 0.5,
+            feedback_started: None,
+            feedback_key: String::new(),
             zoom: 1.0,
             pan: egui::Vec2::ZERO,
         };
 
-        // Opening an image on startup also makes the entire render path
-        // reproducible in desktop smoke tests without a native file picker.
         if let Some(path) = std::env::args_os().nth(1) {
             app.open_path(&cc.egui_ctx, Path::new(&path));
         }
@@ -136,14 +136,13 @@ impl RetroPrintApp {
             Err(err) => {
                 self.status = format!("Cannot open image: {err}");
                 self.is_error = true;
+                self.feedback_key.clear();
             }
         }
     }
 
     fn open_dropped(&mut self, ctx: &egui::Context, file: egui::DroppedFileHandle) {
         let path = file.path().to_path_buf();
-        // Native Wayland/X11 drag-and-drop usually provides an absolute path.
-        // Some portals/providers offer only a readable file handle instead.
         let image = if path.is_file() {
             match load(&path) {
                 Ok(image) => Ok(image),
@@ -165,6 +164,7 @@ impl RetroPrintApp {
             Err(err) => {
                 self.status = format!("Cannot open dropped image: {err}");
                 self.is_error = true;
+                self.feedback_key.clear();
             }
         }
     }
@@ -212,6 +212,7 @@ impl RetroPrintApp {
             } else {
                 self.status = "Preview worker is unavailable".into();
                 self.is_error = true;
+                self.feedback_key.clear();
             }
         }
     }
@@ -240,6 +241,7 @@ impl RetroPrintApp {
                 Err(err) => {
                     self.status = format!("Export failed: {err}");
                     self.is_error = true;
+                self.feedback_key.clear();
                 }
             }
         }
@@ -274,6 +276,7 @@ impl RetroPrintApp {
         if self.source_path.as_deref() == Some(output_path.as_path()) {
             self.status = "Choose a new filename: overwriting the source is disabled".into();
             self.is_error = true;
+                self.feedback_key.clear();
             return;
         }
 
@@ -308,21 +311,21 @@ impl RetroPrintApp {
             view::brand(ui);
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(20.0);
-                export_svg = ui
-                    .add_enabled(
-                        self.source.is_some() && !self.exporting,
-                        view::icon_button(view::Icon::Export, "SVG", view::TEXT)
-                            .min_size(egui::vec2(84.0, 36.0)),
-                    )
-                    .clicked();
-                export = ui
-                    .add_enabled(
-                        self.source.is_some() && !self.exporting,
-                        view::icon_button(view::Icon::Export, "Export PNG", view::BACKGROUND)
-                            .fill(view::ACCENT)
-                            .min_size(egui::vec2(150.0, 36.0)),
-                    )
-                    .clicked();
+                if self.source.is_some() && !self.exporting {
+                    export_svg = ui
+                        .add(
+                            view::icon_button(view::Icon::Export, "SVG", view::TEXT)
+                                .min_size(egui::vec2(84.0, 36.0)),
+                        )
+                        .clicked();
+                    export = ui
+                        .add(
+                            view::icon_button(view::Icon::Export, "Export PNG", view::BACKGROUND)
+                                .fill(view::ACCENT)
+                                .min_size(egui::vec2(150.0, 36.0)),
+                        )
+                        .clicked();
+                }
                 open = ui
                     .add_sized(
                         [145.0, 36.0],
@@ -332,11 +335,9 @@ impl RetroPrintApp {
                 if self.source.is_some()
                     && ui
                         .add(
-                            egui::Button::new("Wipe Compare")
-                                .selected(self.wipe_view)
-                                .corner_radius(16),
+                            view::capsule("Compare").selected(self.wipe_view),
                         )
-                        .on_hover_text("Drag the divider across the image to compare")
+                        .on_hover_text("Wipe Compare")
                         .clicked()
                 {
                     self.wipe_view = !self.wipe_view;
@@ -350,12 +351,7 @@ impl RetroPrintApp {
         let mut changed = false;
         ui.add_space(10.0);
         view::section(ui, "P R I N T   C O N T R O L S", view::Icon::Controls);
-        ui.label(RichText::new("Print Recipes").size(12.0).color(view::TEXT));
-        ui.label(
-            RichText::new("Start with a look, then fine-tune the sliders below.")
-                .size(10.0)
-                .color(view::SUBTLE),
-        );
+
         let recipe_columns = if ui.available_width() >= 320.0 { 3 } else { 2 };
         let recipe_width =
             (ui.available_width() - (recipe_columns - 1) as f32 * 7.0) / recipe_columns as f32;
@@ -377,10 +373,8 @@ impl RetroPrintApp {
                     if ui
                         .add_sized(
                             [recipe_width.max(60.0), 34.0],
-                            egui::Button::new(RichText::new(look.label).size(11.0))
-                                .selected(selected),
+                            view::capsule(look.label).selected(selected),
                         )
-                        .on_hover_text("Apply texture, contrast and palette")
                         .clicked()
                     {
                         apply_look(&mut self.settings, *look);
@@ -393,7 +387,6 @@ impl RetroPrintApp {
                 }
             });
         ui.add_space(14.0);
-        ui.label(RichText::new("Texture Mode").size(12.0).color(view::TEXT));
         let mode_width = (ui.available_width() - 7.0) * 0.5;
         egui::Grid::new("texture_modes")
             .num_columns(2)
@@ -423,17 +416,7 @@ impl RetroPrintApp {
                     if ui
                         .add_sized(
                             [mode_width, 32.0],
-                            egui::Button::new(RichText::new(label).size(
-                                if matches!(
-                                    mode,
-                                    StippleMode::FloydSteinberg | StippleMode::JarvisJudiceNinke
-                                ) {
-                                    9.5
-                                } else {
-                                    11.5
-                                },
-                            ))
-                            .selected(selected),
+                            view::capsule(label).selected(selected),
                         )
                         .clicked()
                         && !selected
@@ -446,25 +429,7 @@ impl RetroPrintApp {
                     }
                 }
             });
-        let mode_hint = match self.settings.mode {
-            StippleMode::Organic => "Soft, clustered analog grain",
-            StippleMode::Fine => "Fine blue-noise dots and sharp details",
-            StippleMode::Threshold => "Hard black-and-white shapes",
-            StippleMode::Bayer4 => "Tight 4×4 ordered pattern",
-            StippleMode::Bayer => "Detailed 8×8 ordered pattern",
-            StippleMode::Halftone => "Round ink dots grow with shadow density",
-            StippleMode::LineScreen => "Engraved diagonal parallel lines",
-            StippleMode::FloydSteinberg => "Continuous-tone error diffusion",
-            StippleMode::Atkinson => "High-contrast retro error diffusion",
-            StippleMode::JarvisJudiceNinke => "Wide, smooth twelve-neighbor diffusion",
-            StippleMode::Stucki => "Structured twelve-neighbor diffusion",
-            StippleMode::Sierra => "Even, soft ten-neighbor diffusion",
-            StippleMode::BlueNoise => "Low-clumping, precomputed blue-noise thresholds",
-            StippleMode::ClusteredDot => "Rotated clustered ink-dot screen",
-            StippleMode::Crosshatch => "Layered directional engraving strokes",
-        };
-        ui.label(RichText::new(mode_hint).size(10.0).color(view::SUBTLE));
-        ui.add_space(12.0);
+        ui.add_space(16.0);
         let pixel_mode = !matches!(self.settings.mode, StippleMode::Organic | StippleMode::Fine);
         if pixel_mode {
             changed |= view::slider(ui, "Pixel Size", &mut self.settings.pixel_size);
@@ -519,32 +484,29 @@ impl RetroPrintApp {
                 swatch_width,
             );
         });
-        ui.label(
-            RichText::new("Click a swatch for spectrum · or type HEX")
-                .size(10.0)
-                .color(view::SUBTLE),
-        );
         ui.add_space(15.0);
-        ui.label(RichText::new("Quick Palette").size(12.0).color(view::TEXT));
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
             for palette in PALETTES {
                 let selected =
                     self.settings.ink == palette.ink && self.settings.paper == palette.paper;
                 let color = Color32::from_rgb(palette.ink[0], palette.ink[1], palette.ink[2]);
-                let stroke = if selected {
-                    egui::Stroke::new(2.0, view::ACCENT)
-                } else {
-                    egui::Stroke::new(1.0, view::BORDER)
-                };
-                if ui
+                let swatch = ui
                     .add_sized(
                         [28.0, 28.0],
-                        egui::Button::new("").fill(color).stroke(stroke),
+                        view::circle_action("")
+                            .fill(color)
+                            .stroke(egui::Stroke::NONE),
                     )
-                    .on_hover_text(palette.label)
-                    .clicked()
-                {
+                    .on_hover_text(palette.label);
+                if selected {
+                    ui.painter().circle_filled(
+                        swatch.rect.right_top() - egui::vec2(6.0, -6.0),
+                        3.0,
+                        view::ACCENT,
+                    );
+                }
+                if swatch.clicked() {
                     self.settings.ink = palette.ink;
                     self.settings.paper = palette.paper;
                     self.sync_hex_fields();
@@ -559,7 +521,7 @@ impl RetroPrintApp {
                 "Swap Ink / Paper",
                 view::TEXT,
             ))
-            .on_hover_text("Reverse foreground and background colors without changing the texture")
+            .on_hover_text("Swap colors")
             .clicked()
         {
             std::mem::swap(&mut self.settings.ink, &mut self.settings.paper);
@@ -567,9 +529,13 @@ impl RetroPrintApp {
             changed = true;
         }
         ui.add_space(16.0);
-        changed |= ui
-            .checkbox(&mut self.settings.transparent_paper, "Transparent Paper")
-            .changed();
+        if ui
+            .add(view::capsule("Transparent Paper").selected(self.settings.transparent_paper))
+            .clicked()
+        {
+            self.settings.transparent_paper = !self.settings.transparent_paper;
+            changed = true;
+        }
         ui.add_space(16.0);
         ui.horizontal(|ui| {
             let button_width = (ui.available_width() - 8.0) * 0.5;
@@ -610,9 +576,20 @@ impl RetroPrintApp {
         self.paper_hex = format_hex_color(self.settings.paper);
     }
 
+    fn status_visible(&self) -> bool {
+        self.is_error
+            || self.exporting
+            || self.preview_pending
+            || self.status.starts_with("Saved ")
+    }
+
     fn footer(&self, ui: &mut egui::Ui) {
+        let elapsed = self
+            .feedback_started
+            .map(|started| ui.input(|input| input.time) - started);
+        let offset = elapsed.map(view::shake_offset).unwrap_or(0.0);
         ui.horizontal(|ui| {
-            ui.add_space(24.0);
+            ui.add_space(24.0 + offset);
             if let Some(input) = &self.source {
                 ui.label(
                     RichText::new(format!("{} × {} px", input.width(), input.height()))
@@ -620,30 +597,26 @@ impl RetroPrintApp {
                         .monospace()
                         .color(view::SUBTLE),
                 );
-                ui.separator();
             }
-            ui.add(view::icon(
-                if self.is_error {
-                    view::Icon::Error
-                } else {
-                    view::Icon::Success
-                },
-                15.0,
-                if self.is_error {
-                    view::ERROR
-                } else {
-                    view::ACCENT
-                },
-            ));
-            ui.label(
-                RichText::new(&self.status)
-                    .color(if self.is_error {
-                        view::ERROR
+            if self.status_visible() {
+                ui.add_space(12.0);
+                ui.add(view::icon(
+                    if self.is_error {
+                        view::Icon::Error
+                    } else if self.exporting || self.preview_pending {
+                        view::Icon::Controls
                     } else {
-                        view::SUBTLE
-                    })
-                    .size(12.0),
-            );
+                        view::Icon::Success
+                    },
+                    15.0,
+                    if self.is_error { view::ERROR } else { view::ACCENT },
+                ));
+                ui.label(
+                    RichText::new(&self.status)
+                        .color(if self.is_error { view::ERROR } else { view::SUBTLE })
+                        .size(12.0),
+                );
+            }
         });
     }
 }
@@ -677,13 +650,11 @@ fn color_selector(
         let response = ui
             .add_sized(
                 [width, 45.0],
-                egui::Button::new("")
-                    .fill(Color32::from_rgb(rgb[0], rgb[1], rgb[2]))
-                    .stroke(egui::Stroke::new(1.0, view::BORDER)),
+                view::capsule("")
+                    .fill(Color32::from_rgb(rgb[0], rgb[1], rgb[2])),
             )
-            .on_hover_text(format!("Edit {label} using the color spectrum"));
+            .on_hover_text(label);
         egui::Popup::menu(&response).show(|ui| {
-            ui.label(format!("{label} · Spectrum"));
             let mut picked = Color32::from_rgb(rgb[0], rgb[1], rgb[2]);
             if egui::color_picker::color_picker_color32(
                 ui,
@@ -719,6 +690,15 @@ impl eframe::App for RetroPrintApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.poll_jobs(&ctx);
+        if self.is_error {
+            if self.feedback_key != self.status {
+                self.feedback_started = Some(ctx.input(|input| input.time));
+                self.feedback_key.clone_from(&self.status);
+            }
+        } else {
+            self.feedback_started = None;
+            self.feedback_key.clear();
+        }
 
         if let Some(file) = ctx.input(|input| input.raw.dropped_files.first().cloned()) {
             self.open_dropped(&ctx, file);
@@ -736,9 +716,7 @@ impl eframe::App for RetroPrintApp {
         egui::Panel::top("retroprint-toolbar")
             .exact_size(72.0)
             .frame(
-                egui::Frame::new()
-                    .fill(view::PANEL)
-                    .stroke(egui::Stroke::new(1.0, view::BORDER)),
+                view::surface_frame(view::PANEL),
             )
             .show(ui, |ui| {
                 ui.vertical_centered(|ui| {
@@ -747,28 +725,27 @@ impl eframe::App for RetroPrintApp {
                 });
             });
 
+        if self.source.is_some() || self.status_visible() {
         egui::Panel::bottom("retroprint-status")
             .exact_size(41.0)
             .frame(
-                egui::Frame::new()
-                    .fill(view::PANEL)
-                    .stroke(egui::Stroke::new(1.0, view::BORDER))
+                view::surface_frame(view::PANEL)
                     .inner_margin(egui::Margin::symmetric(0, 7)),
             )
             .show(ui, |ui| self.footer(ui));
+        }
 
         let sidebar_width = if ui.available_width() < 1040.0 {
             280.0
         } else {
             330.0
         };
+        if self.source.is_some() {
         egui::Panel::left("retroprint-inspector")
             .exact_size(sidebar_width)
             .resizable(false)
             .frame(
-                egui::Frame::new()
-                    .fill(view::PANEL)
-                    .stroke(egui::Stroke::new(1.0, view::BORDER))
+                view::surface_frame(view::PANEL)
                     .inner_margin(egui::Margin {
                         left: 20,
                         right: 5,
@@ -787,6 +764,7 @@ impl eframe::App for RetroPrintApp {
                         changed = self.inspector(ui);
                     });
             });
+        }
 
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(view::BACKGROUND))
@@ -821,6 +799,13 @@ impl eframe::App for RetroPrintApp {
 
         if self.preview_pending || self.exporting {
             ctx.request_repaint_after(std::time::Duration::from_millis(40));
+        }
+        if self.is_error
+            && self.feedback_started.is_some_and(|started| {
+                ctx.input(|input| input.time) - started < 0.5
+            })
+        {
+            ctx.request_repaint_after(std::time::Duration::from_millis(16));
         }
     }
 }
@@ -857,10 +842,6 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
-    // KDE Plasma / Dolphin on Wayland: prefer the XWayland/X11 event loop
-    // when DISPLAY is available. On Wayland-only systems (no XWayland
-    // DISPLAY), keep winit's normal native backend so the app starts.
-    // winit 0.30 no longer recognizes WINIT_UNIX_BACKEND, hence the builder.
     #[cfg(target_os = "linux")]
     if std::env::var_os("DISPLAY").is_some_and(|display| !display.is_empty()) {
         options.event_loop_builder = Some(Box::new(|builder| {
