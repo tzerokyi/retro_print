@@ -388,7 +388,7 @@ impl RetroPrintApp {
                     if ui
                         .add_sized(
                             [ui.available_width(), 32.0],
-                            view::capsule(look.label).selected(selected),
+                            view::menu_option(look.label, selected),
                         )
                         .clicked()
                     {
@@ -417,7 +417,7 @@ impl RetroPrintApp {
                     if ui
                         .add_sized(
                             [ui.available_width(), 32.0],
-                            view::capsule(label).selected(selected),
+                            view::menu_option(label, selected),
                         )
                         .clicked()
                     {
