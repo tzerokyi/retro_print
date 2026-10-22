@@ -37,6 +37,28 @@ pub fn capsule(label: &str) -> egui::Button<'static> {
         .stroke(Stroke::NONE)
 }
 
+pub fn choice_popup(
+    ui: &mut egui::Ui,
+    which: Icon,
+    current: &str,
+    name: &str,
+    choices: impl FnOnce(&mut egui::Ui),
+) {
+    let response = ui
+        .add_sized(
+            [ui.available_width(), 38.0],
+            icon_button(which, current, TEXT),
+        )
+        .on_hover_text(name);
+    egui::Popup::menu(&response).show(|ui| {
+        ui.set_min_width(220.0);
+        egui::ScrollArea::vertical()
+            .max_height(400.0)
+            .auto_shrink([false, true])
+            .show(ui, choices);
+    });
+}
+
 pub fn circle_action(label: &str) -> egui::Button<'static> {
     egui::Button::new(label.to_owned())
         .corner_radius(CAPSULE_RADIUS)
