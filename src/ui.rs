@@ -520,7 +520,10 @@ mod tests {
             &visuals.widgets.noninteractive,
         ] {
             assert_eq!(widget.bg_stroke, Stroke::NONE);
-            assert_eq!(widget.corner_radius, egui::CornerRadius::same(CAPSULE_RADIUS));
+            assert_eq!(
+                widget.corner_radius,
+                egui::CornerRadius::same(CAPSULE_RADIUS)
+            );
         }
     }
 
